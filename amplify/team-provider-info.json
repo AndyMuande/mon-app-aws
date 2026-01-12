@@ -1,0 +1,35 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-monappaws-dev-7fdbe-authRole",
+      "UnauthRoleArn": "arn:aws:iam::194449349076:role/amplify-monappaws-dev-7fdbe-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::194449349076:role/amplify-monappaws-dev-7fdbe-authRole",
+      "Region": "eu-west-3",
+      "DeploymentBucketName": "amplify-monappaws-dev-7fdbe-deployment",
+      "UnauthRoleName": "amplify-monappaws-dev-7fdbe-unauthRole",
+      "StackName": "amplify-monappaws-dev-7fdbe",
+      "StackId": "arn:aws:cloudformation:eu-west-3:194449349076:stack/amplify-monappaws-dev-7fdbe/61343170-efcd-11f0-8dff-0a82a506fce7",
+      "AmplifyAppId": "d1wfzgiebry3ut"
+    },
+    "categories": {
+      "hosting": {
+        "amplifyhosting": {
+          "appId": "d1wfzgiebry3ut",
+          "type": "manual"
+        }
+      },
+      "function": {
+        "apimessages": {
+          "deploymentBucketName": "amplify-monappaws-dev-7fdbe-deployment",
+          "s3Key": "amplify-builds/apimessages-58434b384c4c34766f6a-build.zip"
+        }
+      },
+      "api": {
+        "monapi": {}
+      },
+      "storage": {
+        "messagesTable": {}
+      }
+    }
+  }
+}

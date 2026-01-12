@@ -1,0 +1,10 @@
+{
+  "resourceName": "messagesTable",
+  "tableName": "messages",
+  "partitionKey": {
+    "fieldName": "id",
+    "fieldType": "string"
+  },
+  "gsi": [],
+  "triggerFunctions": []
+}
