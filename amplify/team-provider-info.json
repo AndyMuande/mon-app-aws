@@ -29,6 +29,9 @@
       },
       "storage": {
         "messagesTable": {}
+      },
+      "auth": {
+        "monappaws378b0e76": {}
       }
     }
   }

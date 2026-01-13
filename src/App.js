@@ -1,3 +1,5 @@
+import { fetchAuthSession } from 'aws-amplify/auth';
+import Auth from './Auth';
 import React, { useState, useEffect } from 'react';
 import { api } from './api';
 import './App.css';
@@ -7,12 +9,30 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState('checking');
+  const [showOnlyMyMessages, setShowOnlyMyMessages] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
 
   // Vérifier la santé de l'API au chargement
   useEffect(() => {
+    const setupUser = async () => {
+      const email = await getCurrentUser();
+      setCurrentUserEmail(email);
+    };
+    
     checkApi();
     loadMessages();
+    setupUser();
   }, []);
+
+  const getCurrentUser = async () => {
+  try {
+    const session = await fetchAuthSession();
+    return session.tokens?.idToken?.payload.email || 'Utilisateur';
+  } catch (error) {
+    console.error('Erreur récupération utilisateur:', error);
+    return 'Utilisateur';
+  }
+};
 
   const checkApi = async () => {
     try {
@@ -36,6 +56,25 @@ function App() {
   };
 
   const sendMessage = async () => {
+  if (!message.trim() || loading) return;
+
+  setLoading(true);
+  try {
+    const userEmail = await getCurrentUser();
+    const data = await api.sendMessage(message, userEmail);
+    if (data.success) {
+      await loadMessages();
+      setMessage('');
+    }
+  } catch (error) {
+    console.error('Erreur envoi message:', error);
+    alert('Erreur lors de l\'envoi du message');
+  } finally {
+    setLoading(false);
+  }
+};
+
+  /* const sendMessage = async () => {
     if (!message.trim() || loading) return;
 
     setLoading(true);
@@ -51,7 +90,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }; */
 
   const deleteMessage = async (id) => {
     if (!window.confirm('Voulez-vous vraiment supprimer ce message ?')) {
@@ -69,7 +108,13 @@ function App() {
     }
   };
 
+  // Filtrer les messages affichés
+  const displayedMessages = showOnlyMyMessages
+    ? messages.filter(msg => msg.user === currentUserEmail)
+    : messages;
+
   return (
+    <Auth>
     <div className="App">
       <header className="App-header">
         <h1>🚀 Application AWS Full-Stack</h1>
@@ -84,11 +129,22 @@ function App() {
       <div className="container">
         <div className="message-box">
           <h2>💬 Messages stockés dans DynamoDB ({messages.length})</h2>
+          <div className="filter-controls">
+            <label>
+              <input
+                type="checkbox"
+                checked={showOnlyMyMessages}
+                onChange={(e) => setShowOnlyMyMessages(e.target.checked)}
+              />
+              <span> Afficher uniquement mes messages</span>
+            </label>
+            <div style={{marginTop: '0.5rem', fontSize: '0.9rem', color: '#666'}}>Connecté: {currentUserEmail || '—'}</div>
+          </div>
           <div className="messages-list">
-            {messages.length === 0 ? (
+            {displayedMessages.length === 0 ? (
               <p className="empty">Aucun message. Envoyez-en un !</p>
             ) : (
-              messages.map(msg => (
+              displayedMessages.map(msg => (
                 <div key={msg.id} className="message">
                   <div className="message-header">
                     <span className="username">{msg.user}</span>
@@ -156,6 +212,7 @@ function App() {
         </div>
       </div>
     </div>
+    </Auth>
   );
 }
 
