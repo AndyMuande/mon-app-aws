@@ -29,7 +29,8 @@
         "monapi": {}
       },
       "storage": {
-        "messagesTable": {}
+        "messagesTable": {},
+        "messagesImages": {}
       },
       "auth": {
         "monappaws378b0e76": {}

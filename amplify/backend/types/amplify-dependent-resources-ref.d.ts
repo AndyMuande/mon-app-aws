@@ -27,6 +27,10 @@ export type AmplifyDependentResourcesAttributes = {
     }
   },
   "storage": {
+    "messagesImages": {
+      "BucketName": "string",
+      "Region": "string"
+    },
     "messagesTable": {
       "Arn": "string",
       "Name": "string",
