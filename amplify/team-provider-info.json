@@ -9,7 +9,8 @@
       "UnauthRoleName": "amplify-monappaws-dev-7fdbe-unauthRole",
       "StackName": "amplify-monappaws-dev-7fdbe",
       "StackId": "arn:aws:cloudformation:eu-west-3:194449349076:stack/amplify-monappaws-dev-7fdbe/61343170-efcd-11f0-8dff-0a82a506fce7",
-      "AmplifyAppId": "d1wfzgiebry3ut"
+      "AmplifyAppId": "d1wfzgiebry3ut",
+      "APIGatewayAuthURL": "https://s3.amazonaws.com/amplify-monappaws-dev-7fdbe-deployment/amplify-cfn-templates/api/APIGatewayAuthStack.json"
     },
     "categories": {
       "hosting": {
