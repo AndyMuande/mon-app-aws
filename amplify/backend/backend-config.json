@@ -103,6 +103,11 @@
     }
   },
   "storage": {
+    "messagesImages": {
+      "dependsOn": [],
+      "providerPlugin": "awscloudformation",
+      "service": "S3"
+    },
     "messagesTable": {
       "providerPlugin": "awscloudformation",
       "service": "DynamoDB"
