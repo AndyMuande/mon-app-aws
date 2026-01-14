@@ -76,7 +76,7 @@ export default function Auth({ children }) {
     >
       {({ signOut, user }) => (
         <div>
-          {children}
+          {React.isValidElement(children) ? React.cloneElement(children, { currentUser: user }) : children}
           
           {/* Bouton de déconnexion flottant */}
           <button
