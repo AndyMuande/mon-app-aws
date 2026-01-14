@@ -297,7 +297,7 @@ function App({ currentUser }) {
       </div>
 
       <div className="info-box">
-        <h3>📊 Architecture AWS</h3>
+        <h3>📊 Architecture AWSSSS</h3>
         <div className="architecture">
           <div className="arch-item">
             <div className="arch-icon">🎨</div>
