@@ -1,0 +1,63 @@
+/* MessageList.css - Version Dynamique */
+
+/* Le conteneur qui enveloppe la suite de messages */
+.messages-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px; 
+  padding: 20px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; 
+  box-sizing: border-box;
+  background: transparent; /* Laisse le fond du right-panel (bg-primary) s'afficher */
+  animation: fadeInList 0.5s ease-out;
+}
+
+/* Styles pour les messages de chargement ou liste vide */
+.messages-loading, 
+.no-messages {
+  text-align: center;
+  padding: 50px 20px;
+  /* Utilise la couleur de texte secondaire pour la discrétion */
+  color: var(--text-secondary); 
+  font-style: italic;
+  /* Effet de verre givré qui s'adapte au mode sombre */
+  background: var(--bg-secondary); 
+  opacity: 0.8;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  margin: 20px;
+}
+
+@keyframes fadeInList {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- SCROLLBAR MODERNE --- */
+/* Pour Windows/Chrome/Safari */
+.right-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.right-panel::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.right-panel::-webkit-scrollbar-thumb {
+  /* La barre de défilement prend la couleur du thème ! */
+  background: var(--border-color); 
+  border-radius: 10px;
+  border: 2px solid var(--bg-primary); /* Créé un effet de marge */
+}
+
+.right-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
+/* Pour Firefox */
+.right-panel {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) var(--bg-primary);
+}

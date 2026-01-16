@@ -27,6 +27,10 @@
     "storagemessagesTableStreamArn": {
       "Type": "String",
       "Default": "storagemessagesTableStreamArn"
+    },
+    "storagemessagesImagesBucketName": {
+      "Type": "String",
+      "Default": "storagemessagesImagesBucketName"
     }
   },
   "Conditions": {
@@ -90,6 +94,9 @@
             },
             "STORAGE_MESSAGESTABLE_STREAMARN": {
               "Ref": "storagemessagesTableStreamArn"
+            },
+            "STORAGE_MESSAGESIMAGES_BUCKETNAME": {
+              "Ref": "storagemessagesImagesBucketName"
             }
           }
         },
@@ -233,6 +240,45 @@
                         "Ref": "storagemessagesTableArn"
                       },
                       "index/*"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": "s3:ListBucket",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Ref": "storagemessagesImagesBucketName"
+                      }
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject"
+              ],
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:aws:s3:::",
+                      {
+                        "Ref": "storagemessagesImagesBucketName"
+                      },
+                      "/*"
                     ]
                   ]
                 }

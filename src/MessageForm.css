@@ -1,0 +1,124 @@
+/* MessageForm.css - Version Dynamique */
+.message-form-container {
+  background: var(--bg-secondary); /* CHANGÉ */
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px var(--shadow); /* CHANGÉ */
+  max-height: 100%;
+  overflow-y: auto;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color); /* Ajout d'une bordure subtile */
+}
+
+.message-form {
+  background: var(--bg-secondary); /* CHANGÉ */
+  padding: 10px;
+  border-radius: 8px;
+  border: none; /* La bordure est déjà sur le container */
+}
+
+.message-form h2 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  text-align: left;
+  color: var(--text-primary); /* CHANGÉ */
+}
+
+.textarea-field {
+  width: 100%;
+  padding: 15px; /* Réduit de 40px à 15px pour être plus standard */
+  background: var(--bg-primary); /* CHANGÉ */
+  color: var(--text-primary); /* CHANGÉ */
+  border: 2px solid var(--border-color); /* CHANGÉ */
+  border-radius: 8px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.textarea-field:focus {
+  border-color: var(--primary-color); /* CHANGÉ */
+}
+
+.textarea-field::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.upload-button {
+  display: inline-block;
+  padding: 8px 16px;
+  background: var(--bg-primary); /* CHANGÉ */
+  color: var(--text-secondary); /* CHANGÉ */
+  border: 1px dashed var(--border-color); /* CHANGÉ */
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  transition: all 0.2s;
+}
+
+.upload-button:hover {
+  background: var(--bg-secondary);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.image-preview {
+  position: relative;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.image-preview img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.submit-button {
+  width: 100%;
+  padding: 12px;
+  background: var(--gradient); /* DYNAMIQUE avec ton thème */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+  box-shadow: 0 4px 10px var(--shadow);
+}
+
+.submit-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.error-message {
+  background: #fff5f5; /* On garde un rouge léger pour l'erreur */
+  color: #c53030;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid #feb2b2;
+}
+
+/* Ajustement spécifique pour le mode sombre de l'erreur */
+.dark-mode .error-message {
+  background: #2d1a1a;
+  color: #fc8181;
+  border-color: #742a2a;
+}
