@@ -1,0 +1,151 @@
+/* CONTENEUR GLOBAL */
+.architecture-section {
+  background: white;
+  margin: 40px auto;
+  max-width: 1100px;
+  width: 95%;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  border: 1px solid #edf2f7;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+/* EN-TÊTE DU COMPOSANT */
+.arch-header {
+  background: #f8fafc;
+  padding: 18px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  border-bottom: 1px solid #edf2f7;
+  transition: background 0.2s;
+}
+
+.arch-header:hover {
+  background: #f1f5f9;
+}
+
+.arch-header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #1e293b;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* GRILLE À 3 COLONNES */
+.arch-content {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  padding: 30px;
+  background: #ffffff;
+  animation: fadeInArch 0.4s ease-out;
+}
+
+/* STYLES DES COLONNES */
+.arch-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.arch-column h4 {
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #334155;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* ARBORESCENCE (TREE VIEW) */
+.tree {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tree li {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.tree li strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+/* SOUS-LISTES (DOSSIERS) */
+.tree ul {
+  list-style: none;
+  padding-left: 22px;
+  margin-top: 8px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.tree ul li {
+  position: relative;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+/* Petit trait horizontal pour les sous-éléments */
+.tree ul li::before {
+  content: "";
+  position: absolute;
+  left: -22px;
+  top: 10px;
+  width: 12px;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+/* ANIMATION D'APPARITION */
+@keyframes fadeInArch {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* RESPONSIVE DESIGN */
+@media (max-width: 1024px) {
+  .arch-content {
+    grid-template-columns: repeat(2, 1fr); /* 2 colonnes sur tablette */
+    gap: 20px;
+  }
+}
+
+@media (max-width: 650px) {
+  .arch-content {
+    grid-template-columns: 1fr; /* 1 colonne sur mobile */
+    padding: 20px;
+  }
+  
+  .arch-column {
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  
+  .arch-column:last-child {
+    border-bottom: none;
+  }
+}

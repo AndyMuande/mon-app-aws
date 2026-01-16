@@ -1,0 +1,46 @@
+/* Le conteneur qui enveloppe la suite de messages */
+.messages-content {
+  display: flex;
+  flex-direction: column;
+  gap: 15px; /* Espace entre chaque MessageCard */
+  padding: 20px;
+  width: 100%;
+  max-width: 100%;
+  /* Sécurité contre le scroll horizontal */
+  overflow-x: hidden; 
+  box-sizing: border-box;
+  /* Animation pour une apparition fluide de la liste */
+  animation: fadeInList 0.5s ease-out;
+}
+
+/* Styles pour les messages de chargement ou liste vide */
+.messages-loading, 
+.no-messages {
+  text-align: center;
+  padding: 50px 20px;
+  color: #888;
+  font-style: italic;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  margin: 20px;
+}
+
+@keyframes fadeInList {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Personnalisation de la barre de défilement pour le panneau de droite */
+/* (Optionnel, pour un look plus moderne) */
+.messages-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-content::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}

@@ -1,0 +1,80 @@
+.filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #ffffff;
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0; /* EMPECHE LE COMPOSANT D'ÊTRE ÉCRASÉ */
+  min-height: fit-content; /* S'adapte au contenu */
+}
+
+.filters-top-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap; /* PERMET DE PASSER À LA LIGNE SI COUPÉ */
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex-flow: row wrap; /* Recherche et Selects sur la même ligne si possible */
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #f1f3f5;
+  border-radius: 6px;
+  padding: 4px 10px;
+  flex: 1; /* S'adapte mieux */
+  min-width: 200px; /* Minimum de largeur pour la recherche */
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  padding: 6px;
+  width: 100%;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.filters-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap; /* Permet aux boutons de filtrage de s'empiler */
+  gap: 8px;
+  flex: 2;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 0 8px;
+  height: 34px;
+  white-space: nowrap; /* Empêche le texte de se couper à l'intérieur */
+}
+
+.filter-select {
+  border: none;
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+  background: transparent;
+  color: #495057;
+}
+
+.results-count {
+  font-size: 0.75rem;
+  color: #667eea;
+  font-weight: 600;
+  padding-top: 10px;
+  border-top: 1px solid #f8f9fa;
+  width: 100%;
+}
