@@ -8,6 +8,7 @@ import MessageForm from './MessageForm';
 import Filters from './Filters';
 import Architecture from './Architecture';
 import MessageList from './MessageList';
+import ThemeToggle from './ThemeToggle';
 import './App.css';
 
 const API_URL = 'https://4rca5iti3f.execute-api.eu-west-3.amazonaws.com/dev';
@@ -88,6 +89,29 @@ function App() {
     return () => clearInterval(interval);
   }, [fetchMessages, loading]);
 
+  // --- CHARGER LES PRÉFÉRENCES DE FILTRES ---
+  useEffect(() => {
+    const savedFilters = localStorage.getItem('messageFilters');
+    if (savedFilters) {
+      try {
+        const filters = JSON.parse(savedFilters);
+        setSearchTerm(filters.searchTerm || '');
+        setFilterUser(filters.filterUser || 'all');
+        setFilterDate(filters.filterDate || 'all');
+        setSortBy(filters.sortBy || 'newest');
+        setShowOnlyMyMessages(filters.showOnlyMyMessages || false);
+      } catch (e) {
+        console.error('Erreur chargement filtres:', e);
+      }
+    }
+  }, []);
+
+  // --- SAUVEGARDER LES PRÉFÉRENCES DE FILTRES ---
+  useEffect(() => {
+    const filters = { searchTerm, filterUser, filterDate, sortBy, showOnlyMyMessages };
+    localStorage.setItem('messageFilters', JSON.stringify(filters));
+  }, [searchTerm, filterUser, filterDate, sortBy, showOnlyMyMessages]);
+
   // --- GESTION DES IMAGES ---
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -154,24 +178,91 @@ function App() {
     }
   };
 
-  // --- FILTRAGE ---
-  const displayedMessages = messages
-    .filter(msg => {
-      if (showOnlyMyMessages && msg.user !== currentUserEmail) return false;
-      if (searchTerm && !msg.text.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-      if (filterUser !== 'all' && msg.user !== filterUser) return false;
-      return true;
-    })
-    .sort((a, b) => sortBy === 'newest' 
-      ? new Date(b.timestamp) - new Date(a.timestamp) 
-      : new Date(a.timestamp) - new Date(b.timestamp)
-    );
+  // --- FILTRAGE AMÉLIORÉ ---
+  const getFilteredAndSortedMessages = useCallback(() => {
+    let filtered = [...messages];
+
+    // Filtre "Mes messages uniquement"
+    if (showOnlyMyMessages) {
+      filtered = filtered.filter(msg => msg.user === currentUserEmail);
+    }
+
+    // Filtre par recherche textuelle
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(msg =>
+        msg.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        msg.user.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtre par utilisateur spécifique
+    if (filterUser !== 'all') {
+      filtered = filtered.filter(msg => msg.user === filterUser);
+    }
+
+    // Filtre par date
+    if (filterDate !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      filtered = filtered.filter(msg => {
+        const msgDate = new Date(msg.timestamp);
+        
+        switch (filterDate) {
+          case 'today':
+            return msgDate >= today;
+          
+          case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return msgDate >= weekAgo;
+          
+          case 'month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            return msgDate >= monthAgo;
+          
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Tri
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        
+        case 'oldest':
+          return new Date(a.timestamp) - new Date(b.timestamp);
+        
+        case 'user':
+          return a.user.localeCompare(b.user);
+        
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [messages, showOnlyMyMessages, searchTerm, filterUser, filterDate, sortBy, currentUserEmail]);
+
+  // Récupérer la liste unique des utilisateurs
+  const getUniqueUsers = useCallback(() => {
+    return [...new Set(messages.map(msg => msg.user))].sort();
+  }, [messages]);
+
+  // Messages filtrés
+  const displayedMessages = getFilteredAndSortedMessages();
 
   // --- RENDU ---
   return (
     <Auth>
       {({ signOut, user }) => (
         <div className="App">
+          {/* Bouton de personnalisation du thème */}
+          <ThemeToggle />
           <Header 
             apiStatus={apiStatus} 
             currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail} 
@@ -197,21 +288,30 @@ function App() {
             <div className="right-panel">
               <div className="messages-list-container">
                 <Filters 
-                  searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-                  filterUser={filterUser} setFilterUser={setFilterUser}
-                  filterDate={filterDate} setFilterDate={setFilterDate}
-                  sortBy={sortBy} setSortBy={setSortBy}
-                  users={[...new Set(messages.map(m => m.user))]}
+                  searchTerm={searchTerm} 
+                  setSearchTerm={setSearchTerm}
+                  filterUser={filterUser} 
+                  setFilterUser={setFilterUser}
+                  filterDate={filterDate} 
+                  setFilterDate={setFilterDate}
+                  sortBy={sortBy} 
+                  setSortBy={setSortBy}
+                  users={getUniqueUsers()}
                   totalMessages={messages.length}
                   filteredCount={displayedMessages.length}
                 />
+                
                 <div className="messages-header">
                   <div className="title-section">
-                    <h2>Flux de messages</h2>
+                    <h2>
+                      Flux de messages ({displayedMessages.length}
+                      {displayedMessages.length !== messages.length && `/${messages.length}`})
+                    </h2>
                     <button 
                       className={`refresh-btn ${loading ? 'spinning' : ''}`} 
                       onClick={fetchMessages}
                       title="Actualiser les messages"
+                      disabled={loading}
                     >
                       {loading ? '⏳' : '🔄'}
                     </button>
@@ -231,10 +331,12 @@ function App() {
                   onDelete={handleDelete} 
                   currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail}
                   loading={loading}
+                  searchTerm={searchTerm}
                 />
               </div>
             </div>
           </div>
+          
           <Architecture />
         </div>
       )}

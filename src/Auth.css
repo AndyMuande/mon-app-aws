@@ -1,23 +1,60 @@
-/* Centre le formulaire d'Amplify au milieu de l'écran */
+/* Auth.css - Version Dynamique */
+
+/* Centre le formulaire d'Amplify et applique le dégradé du thème */
 [data-amplify-authenticator] {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* Utilise le gradient de ton thème au lieu d'un fixe */
+  background: var(--gradient); 
+  transition: background 0.5s ease;
 }
 
+/* Personnalisation de la boîte de dialogue Amplify */
+[data-amplify-container] {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px var(--shadow);
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary); /* Fond de la boîte s'adapte au mode sombre */
+}
+
+/* En-tête personnalisé au-dessus du formulaire */
 .auth-custom-header {
   text-align: center;
-  padding: 1rem 0;
+  padding: 1.5rem 0;
+  background: var(--bg-secondary);
 }
 
 .auth-custom-header h2 {
-  color: #667eea;
+  color: var(--primary-color); /* Titre à la couleur du thème */
   margin: 5px 0;
+  font-weight: 800;
 }
 
 .auth-custom-header p {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+/* --- ADAPTATIONS SÉCIFIQUES POUR LES COMPOSANTS AMPLIFY --- */
+
+/* Change la couleur des boutons d'Amplify pour coller au thème */
+[data-amplify-authenticator] [data-variation='primary'] {
+  background: var(--gradient);
+  border: none;
+}
+
+/* Change les couleurs des labels et textes internes */
+[data-amplify-authenticator] label,
+[data-amplify-authenticator] [data-amplify-copy] {
+  color: var(--text-primary);
+}
+
+/* Input de connexion */
+[data-amplify-authenticator] input {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
 }

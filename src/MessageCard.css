@@ -1,19 +1,21 @@
+/* MessageCard.css - Version Dynamique */
 .message-card {
-  background: white;
+  background: var(--bg-secondary); /* CHANGÉ */
+  color: var(--text-primary); /* CHANGÉ */
   border-radius: 12px;
   padding: 15px;
   margin-bottom: 15px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px var(--shadow); /* CHANGÉ */
   position: relative;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease; /* Fluidité renforcée pour le thème */
   width: 100%;
   box-sizing: border-box;
-  word-wrap: break-word; /* Casse les textes très longs */
-  overflow: hidden; /* Sécurité anti-débordement */
+  word-wrap: break-word;
+  overflow: hidden;
   animation: slideIn 0.3s ease-out;
+  border: 1px solid var(--border-color); /* Ajout d'une bordure subtile */
 }
 
-/* Animation à l'apparition */
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -21,13 +23,14 @@
 
 .message-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px var(--shadow);
 }
 
+/* Tes propres messages */
 .message-card.own-message {
-  background: #e3f2fd;
-  border-left: 4px solid #2196f3;
-  /* Si tu veux les décaler légèrement à droite plus tard */
+  /* On utilise une version transparente de la couleur primaire pour le fond */
+  background: color-mix(in srgb, var(--primary-color), transparent 85%); 
+  border-left: 4px solid var(--primary-color);
   margin-left: auto; 
   max-width: 90%; 
 }
@@ -37,35 +40,37 @@
   justify-content: space-between;
   margin-bottom: 8px;
   font-size: 0.85rem;
-  color: #666;
-  padding-right: 25px; /* Laisse de la place pour le bouton X */
+  color: var(--text-secondary); /* CHANGÉ */
+  padding-right: 25px;
 }
 
 .message-user {
   font-weight: bold;
-  color: #333;
+  color: var(--primary-color); /* Utilise la couleur du thème choisi */
 }
 
 .message-time {
   font-size: 0.75rem;
-  color: #999;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .message-body p {
   margin: 0;
   line-height: 1.5;
-  color: #2c3e50;
-  white-space: pre-wrap; /* Respecte les retours à la ligne de l'utilisateur */
+  color: var(--text-primary); /* CHANGÉ */
+  white-space: pre-wrap;
 }
 
 .message-image-container {
   margin-top: 10px;
   border-radius: 8px;
   overflow: hidden;
-  background: #f0f0f0;
-  max-height: 400px; /* Évite les images trop géantes */
+  background: var(--bg-primary); /* CHANGÉ */
+  max-height: 400px;
   display: flex;
   justify-content: center;
+  border: 1px solid var(--border-color);
 }
 
 .message-image {
@@ -79,25 +84,27 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  background: rgba(255, 255, 255, 0.8);
-  border: none;
+  background: var(--bg-secondary); /* CHANGÉ */
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0.2;
+  opacity: 0; /* Masqué par défaut */
   transition: all 0.2s;
   font-size: 12px;
 }
 
 .message-card:hover .delete-button {
-  opacity: 1;
+  opacity: 1; /* Apparaît au survol de la carte */
 }
 
 .delete-button:hover {
-  background: #ffebee;
-  color: #d32f2f;
+  background: #ff4d4d;
+  color: white;
+  border-color: #ff4d4d;
 }

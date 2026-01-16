@@ -3,18 +3,24 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Transition fluide pour que le changement de thème soit beau */
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 body, html {
   width: 100%;
   height: 100%;
-  overflow-x: hidden; /* Empêche tout débordement global */
+  overflow-x: hidden;
   overflow: visible !important;
+  background-color: var(--bg-primary); /* CHANGÉ */
+  /* Cette ligne assure que TOUT change en fondu, pas d'un coup sec */
+  transition: background 0.5s ease-in-out, color 0.5s ease-in-out;
 }
 
 .App {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  /* On utilise le gradient dynamique géré par ton JS */
+  background: var(--gradient); 
   display: flex;
   flex-direction: column;
 }
@@ -26,9 +32,9 @@ body, html {
   max-width: 100%;
   flex: 1;
   align-items: flex-start;
-  overflow: hidden; /* Important pour isoler les scrolls des colonnes */
+  overflow: hidden;
   position: relative;
-  background-color: #fdfdfd;
+  background-color: var(--bg-primary); /* CHANGÉ */
 }
 
 /* --- PANNEAU GAUCHE (Fixe) --- */
@@ -36,11 +42,12 @@ body, html {
   width: 350px;
   flex-shrink: 0;
   position: sticky;
-  top: 50px; /* Aligné sous le header */
+  top: 50px;
   height: calc(100vh - 80px);
   padding: 0px;
   overflow-y: auto;
   z-index: 20;
+  background-color: var(--bg-primary); /* CHANGÉ */
 }
 
 /* --- PANNEAU DROIT (Scrollable) --- */
@@ -48,25 +55,22 @@ body, html {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #fdfdfd;
+  background-color: var(--bg-primary); /* CHANGÉ */
   padding: 20px;
   min-width: 0;
-  /* On gère le scroll ici pour que les filtres restent en haut si on veut, 
-     ou scrollent avec le reste */
   overflow-y: auto; 
   overflow-x: hidden;
-  min-width: 0;
 }
 
 /* --- STRUCTURE INTERNE DU PANNEAU DROIT --- */
 .messages-list-container {
-  display: flex; /* Retour au Flex pour un meilleur contrôle */
+  display: flex;
   flex-direction: column;
   max-width: 1000px;
   margin: 0 auto;
   width: 100%;
-  gap: 10px; /* Ajoute un petit espace entre Filtres, Titre et Liste */
-  margin-top: 30px
+  gap: 10px;
+  margin-top: 30px;
 }
 
 .messages-header {
@@ -78,9 +82,9 @@ body, html {
 }
 
 .messages-header h2 {
-  color: #333;
+  color: var(--text-primary); /* CHANGÉ */
   font-size: 1.5rem;
-  border-bottom: 3px solid #667eea;
+  border-bottom: 3px solid var(--primary-color); /* CHANGÉ */
   padding-bottom: 0.5rem;
 }
 
@@ -90,38 +94,14 @@ body, html {
   align-items: center;
   gap: 10px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary); /* CHANGÉ */
 }
 
 .filter-controls input[type="checkbox"] {
   width: 18px;
   height: 18px;
   cursor: pointer;
-}
-
-/* --- RESPONSIVE --- */
-@media (max-width: 900px) {
-  .container {
-    flex-direction: column;
-    overflow-y: auto;
-  }
-
-  .left-panel {
-    width: 100%;
-    position: static;
-    height: auto;
-  }
-
-  .right-panel {
-    width: 100%;
-    padding: 10px;
-  }
-}
-
-/* Animation globale */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  accent-color: var(--primary-color); /* Couleur de la checkbox */
 }
 
 /* --- BOUTON ACTUALISER --- */
@@ -132,8 +112,9 @@ body, html {
 }
 
 .refresh-btn {
-  background: white;
-  border: 1px solid #e0e0e0;
+  background: var(--bg-secondary); /* CHANGÉ */
+  border: 1px solid var(--border-color); /* CHANGÉ */
+  color: var(--text-primary); /* CHANGÉ */
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -142,29 +123,40 @@ body, html {
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px var(--shadow); /* CHANGÉ */
   font-size: 14px;
 }
 
 .refresh-btn:hover {
-  background: #f8f9fa;
-  border-color: #667eea;
+  background: var(--bg-primary);
+  border-color: var(--primary-color);
   transform: scale(1.1);
 }
 
-.refresh-btn:active {
-  transform: scale(0.9);
+/* --- RESPONSIVE --- */
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .left-panel {
+    width: 100%;
+    position: static;
+    height: auto;
+  }
+  .right-panel {
+    width: 100%;
+    padding: 10px;
+  }
 }
 
-/* Animation de rotation quand loading est vrai */
-.refresh-btn.spinning {
-  animation: rotate 1s linear infinite;
-  background: #f0f2ff;
-  border-color: #667eea;
-  pointer-events: none; /* Désactive le clic pendant le chargement */
-}
-
+/* Animations habituelles */
 @keyframes rotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.refresh-btn.spinning {
+  animation: rotate 1s linear infinite;
+  color: var(--primary-color);
 }

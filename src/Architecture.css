@@ -1,30 +1,30 @@
 /* CONTENEUR GLOBAL */
 .architecture-section {
-  background: white;
+  background: var(--bg-secondary); /* CHANGÉ */
   margin: 40px auto;
   max-width: 1100px;
   width: 95%;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px var(--shadow); /* CHANGÉ */
   overflow: hidden;
-  border: 1px solid #edf2f7;
+  border: 1px solid var(--border-color); /* CHANGÉ */
   font-family: 'Inter', -apple-system, sans-serif;
+  transition: all 0.3s ease;
 }
 
 /* EN-TÊTE DU COMPOSANT */
 .arch-header {
-  background: #f8fafc;
+  background: var(--bg-primary); /* CHANGÉ (plus clair/sombre que le contenu) */
   padding: 18px 25px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  border-bottom: 1px solid #edf2f7;
-  transition: background 0.2s;
+  border-bottom: 1px solid var(--border-color); /* CHANGÉ */
 }
 
 .arch-header:hover {
-  background: #f1f5f9;
+  filter: brightness(0.95); /* Effet de hover universel */
 }
 
 .arch-header h3 {
@@ -32,7 +32,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #1e293b;
+  color: var(--text-primary); /* CHANGÉ */
   font-size: 1.1rem;
   font-weight: 700;
 }
@@ -43,22 +43,17 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 30px;
   padding: 30px;
-  background: #ffffff;
+  background: var(--bg-secondary); /* CHANGÉ */
   animation: fadeInArch 0.4s ease-out;
 }
 
 /* STYLES DES COLONNES */
-.arch-column {
-  display: flex;
-  flex-direction: column;
-}
-
 .arch-column h4 {
   margin-bottom: 20px;
   font-size: 0.95rem;
   font-weight: 700;
-  color: #334155;
-  border-bottom: 2px solid #f1f5f9;
+  color: var(--text-primary); /* CHANGÉ */
+  border-bottom: 2px solid var(--border-color); /* CHANGÉ */
   padding-bottom: 10px;
   display: flex;
   align-items: center;
@@ -68,24 +63,18 @@
 }
 
 /* ARBORESCENCE (TREE VIEW) */
-.tree {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
 .tree li {
   margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 0.9rem;
-  color: #475569;
+  color: var(--text-secondary); /* CHANGÉ */
   line-height: 1.4;
 }
 
 .tree li strong {
-  color: #1e293b;
+  color: var(--text-primary); /* CHANGÉ */
   font-weight: 600;
 }
 
@@ -94,16 +83,9 @@
   list-style: none;
   padding-left: 22px;
   margin-top: 8px;
-  border-left: 1px solid #e2e8f0;
+  border-left: 1px solid var(--border-color); /* CHANGÉ */
 }
 
-.tree ul li {
-  position: relative;
-  font-size: 0.85rem;
-  margin-bottom: 8px;
-}
-
-/* Petit trait horizontal pour les sous-éléments */
 .tree ul li::before {
   content: "";
   position: absolute;
@@ -111,41 +93,21 @@
   top: 10px;
   width: 12px;
   height: 1px;
-  background: #e2e8f0;
+  background: var(--border-color); /* CHANGÉ */
 }
 
-/* ANIMATION D'APPARITION */
+/* Animation et Responsive restent identiques mais utilisent les variables si besoin */
 @keyframes fadeInArch {
-  from { 
-    opacity: 0; 
-    transform: translateY(10px); 
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* RESPONSIVE DESIGN */
 @media (max-width: 1024px) {
-  .arch-content {
-    grid-template-columns: repeat(2, 1fr); /* 2 colonnes sur tablette */
-    gap: 20px;
-  }
+  .arch-content { grid-template-columns: repeat(2, 1fr); gap: 20px; }
 }
 
 @media (max-width: 650px) {
-  .arch-content {
-    grid-template-columns: 1fr; /* 1 colonne sur mobile */
-    padding: 20px;
-  }
-  
-  .arch-column {
-    padding-bottom: 20px;
-    border-bottom: 1px solid #f1f5f9;
-  }
-  
-  .arch-column:last-child {
-    border-bottom: none;
-  }
+  .arch-content { grid-template-columns: 1fr; padding: 20px; }
+  .arch-column { padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+  .arch-column:last-child { border-bottom: none; }
 }
