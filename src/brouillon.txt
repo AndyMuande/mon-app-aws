@@ -1,0 +1,1221 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { fetchAuthSession } from 'aws-amplify/auth';
+
+// Imports de tes composants
+import Auth from './Auth';
+import Header from './Header';
+import MessageForm from './MessageForm';
+import Filters from './Filters';
+import Architecture from './Architecture';
+import MessageList from './MessageList';
+import ThemeToggle from './ThemeToggle';
+import './App.css';
+
+const API_URL = 'https://4rca5iti3f.execute-api.eu-west-3.amazonaws.com/dev';
+
+function App() {
+  // --- ÉTATS ---
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [apiStatus, setApiStatus] = useState('checking');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  
+  // --- ÉTATS FILTRAGE ---
+  const [showOnlyMyMessages, setShowOnlyMyMessages] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterUser, setFilterUser] = useState('all');
+  const [filterDate, setFilterDate] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+
+  // --- LOGIQUE UTILISATEUR & API ---
+  const getCurrentUser = useCallback(async () => {
+    try {
+      const session = await fetchAuthSession();
+      return session?.tokens?.idToken?.payload?.email || session?.username || null;
+    } catch (err) {
+      return null;
+    }
+  }, []);
+
+  const setupUser = useCallback(async () => {
+    const email = await getCurrentUser();
+    setCurrentUserEmail(email || '');
+  }, [getCurrentUser]);
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/messages`);
+      const data = await response.json();
+      if (data.success) setMessages(data.messages);
+    } catch (err) {
+      setError('Erreur chargement: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const checkApi = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/messages/health`);
+      const data = await response.json();
+      setApiStatus(data.status === 'ok' ? 'connected' : 'disconnected');
+    } catch (err) {
+      setApiStatus('disconnected');
+    }
+  }, []);
+
+  // Effet initial au chargement
+  useEffect(() => {
+    checkApi();
+    fetchMessages();
+    setupUser();
+  }, [checkApi, fetchMessages, setupUser]);
+
+  // --- LOGIQUE TEMPS RÉEL (POLLING) ---
+  useEffect(() => {
+    // Rafraîchit les messages toutes les 10 secondes
+    const interval = setInterval(() => {
+      if (!loading) {
+        fetchMessages();
+      }
+    }, 10000); 
+
+    // Nettoyage de l'intervalle si on quitte la page
+    return () => clearInterval(interval);
+  }, [fetchMessages, loading]);
+
+  // --- CHARGER LES PRÉFÉRENCES DE FILTRES ---
+  useEffect(() => {
+    const savedFilters = localStorage.getItem('messageFilters');
+    if (savedFilters) {
+      try {
+        const filters = JSON.parse(savedFilters);
+        setSearchTerm(filters.searchTerm || '');
+        setFilterUser(filters.filterUser || 'all');
+        setFilterDate(filters.filterDate || 'all');
+        setSortBy(filters.sortBy || 'newest');
+        setShowOnlyMyMessages(filters.showOnlyMyMessages || false);
+      } catch (e) {
+        console.error('Erreur chargement filtres:', e);
+      }
+    }
+  }, []);
+
+  // --- SAUVEGARDER LES PRÉFÉRENCES DE FILTRES ---
+  useEffect(() => {
+    const filters = { searchTerm, filterUser, filterDate, sortBy, showOnlyMyMessages };
+    localStorage.setItem('messageFilters', JSON.stringify(filters));
+  }, [searchTerm, filterUser, filterDate, sortBy, showOnlyMyMessages]);
+
+  // --- GESTION DES IMAGES ---
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError("L'image est trop lourde (max 5Mo)");
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
+  // --- ACTIONS ---
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    setError(null);
+
+    try {
+      setLoading(true);
+      const messageData = { text: newMessage, user: currentUserEmail || 'Anonyme' };
+      if (selectedImage) {
+        messageData.imageBase64 = imagePreview;
+        messageData.imageType = selectedImage.type;
+      }
+      const response = await fetch(`${API_URL}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(messageData)
+      });
+      if (response.ok) {
+        setNewMessage('');
+        setSelectedImage(null);
+        setImagePreview(null);
+        fetchMessages();
+      } else {
+        throw new Error("Erreur lors de l'envoi");
+      }
+    } catch (err) { 
+      setError(err.message);
+      setTimeout(() => setError(null), 5000); // Efface l'erreur après 5s
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Supprimer ce message ?')) return;
+    try {
+      await fetch(`${API_URL}/messages/${id}`, { method: 'DELETE' });
+      fetchMessages();
+    } catch (err) { 
+      setError(err.message); 
+    }
+  };
+
+  // --- FILTRAGE AMÉLIORÉ ---
+  const getFilteredAndSortedMessages = useCallback(() => {
+    let filtered = [...messages];
+
+    // Filtre "Mes messages uniquement"
+    if (showOnlyMyMessages) {
+      filtered = filtered.filter(msg => msg.user === currentUserEmail);
+    }
+
+    // Filtre par recherche textuelle
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(msg =>
+        msg.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        msg.user.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtre par utilisateur spécifique
+    if (filterUser !== 'all') {
+      filtered = filtered.filter(msg => msg.user === filterUser);
+    }
+
+    // Filtre par date
+    if (filterDate !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      filtered = filtered.filter(msg => {
+        const msgDate = new Date(msg.timestamp);
+        
+        switch (filterDate) {
+          case 'today':
+            return msgDate >= today;
+          
+          case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return msgDate >= weekAgo;
+          
+          case 'month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            return msgDate >= monthAgo;
+          
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Tri
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        
+        case 'oldest':
+          return new Date(a.timestamp) - new Date(b.timestamp);
+        
+        case 'user':
+          return a.user.localeCompare(b.user);
+        
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [messages, showOnlyMyMessages, searchTerm, filterUser, filterDate, sortBy, currentUserEmail]);
+
+  // Récupérer la liste unique des utilisateurs
+  const getUniqueUsers = useCallback(() => {
+    return [...new Set(messages.map(msg => msg.user))].sort();
+  }, [messages]);
+
+  // Messages filtrés
+  const displayedMessages = getFilteredAndSortedMessages();
+
+  // --- RENDU ---
+  return (
+    <Auth>
+      {({ signOut, user }) => (
+        <div className="App">
+          {/* Bouton de personnalisation du thème */}
+          <ThemeToggle />
+          <Header 
+            apiStatus={apiStatus} 
+            currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail} 
+            setupUser={setupUser}
+            signOut={signOut}
+          />
+
+          <div className="container">
+            <div className="left-panel">
+              <MessageForm 
+                newMessage={newMessage}
+                setNewMessage={setNewMessage}
+                handleSubmit={handleSubmit}
+                handleImageSelect={handleImageSelect}
+                imagePreview={imagePreview}
+                clearImage={clearImage}
+                loading={loading}
+                error={error}
+                setError={setError}
+              />
+            </div>
+
+            <div className="right-panel">
+              <div className="messages-list-container">
+                <Filters 
+                  searchTerm={searchTerm} 
+                  setSearchTerm={setSearchTerm}
+                  filterUser={filterUser} 
+                  setFilterUser={setFilterUser}
+                  filterDate={filterDate} 
+                  setFilterDate={setFilterDate}
+                  sortBy={sortBy} 
+                  setSortBy={setSortBy}
+                  users={getUniqueUsers()}
+                  totalMessages={messages.length}
+                  filteredCount={displayedMessages.length}
+                />
+                
+                <div className="messages-header">
+                  <div className="title-section">
+                    <h2>
+                      Flux de messages ({displayedMessages.length}
+                      {displayedMessages.length !== messages.length && `/${messages.length}`})
+                    </h2>
+                    <button 
+                      className={`refresh-btn ${loading ? 'spinning' : ''}`} 
+                      onClick={fetchMessages}
+                      title="Actualiser les messages"
+                      disabled={loading}
+                    >
+                      {loading ? '⏳' : '🔄'}
+                    </button>
+                  </div>
+                  <label className="filter-controls">
+                    <input 
+                      type="checkbox" 
+                      checked={showOnlyMyMessages} 
+                      onChange={e => setShowOnlyMyMessages(e.target.checked)} 
+                    />
+                    <span> Mes messages</span>
+                  </label>
+                </div>
+
+                <MessageList 
+                  messages={displayedMessages} 
+                  onDelete={handleDelete} 
+                  currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail}
+                  loading={loading}
+                  searchTerm={searchTerm}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <Architecture />
+        </div>
+      )}
+    </Auth>
+  );
+}
+
+export default App;
+
+// header.js
+
+import React from 'react';
+import './Header.css';
+
+const Header = ({ apiStatus, currentUserEmail, setupUser, signOut }) => {
+  return (
+    <header className="App-header">
+      {/* GAUCHE : Logo et Infos */}
+      <div className="header-left">
+        <h1>💬 Messagerie AWS</h1>
+        <div className="header-left-info">
+          <div className={`api-status ${apiStatus}`}>
+            {apiStatus === 'connected' ? '🟢 Connectée' : 
+             apiStatus === 'disconnected' ? '🔴 Déconnectée' : 
+             '🟡 Vérif...'}
+          </div>
+          <span className="user-info">👤 {currentUserEmail || 'Anonyme'}</span>
+          <button onClick={setupUser} className="refresh-btn" title="Actualiser">🔄</button>
+        </div>
+      </div>
+
+      {/* CENTRE : Texte défilant */}
+      <div className="header-center">
+        <div className="scroll-container">
+          <p className="scroll-text">
+            🚀 Bienvenue sur la messagerie AWS — Update v2.4 disponible — Serveur : US-EAST-1 opérationnel
+          </p>
+        </div>
+      </div>
+
+      {/* DROITE : Déconnexion isolée */}
+      <div className="header-right">
+        <button onClick={signOut} className="logout-btn-top" title="Se déconnecter">
+          🚪 Déconnexion
+        </button>
+      </div>
+    </header>
+  );
+};
+
+export default Header;
+
+// Header.css
+
+.App-header {
+  height: 60px;
+  background: #1a202c; /* Sombre pour un look AWS Pro */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  color: white;
+  flex-shrink: 0; /* Empêche le header de s'écraser */
+  z-index: 1000;
+  border-bottom: 1px solid #2d3748;
+  position:fixed;
+  width: 100%;
+  padding: 10px 20px
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  white-space: nowrap;
+}
+
+.header-left h1 {
+  font-size: 1.1rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.header-left-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 0.85rem;
+}
+
+.api-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.refresh-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  transition: transform 0.3s;
+}
+
+.refresh-btn:hover {
+  transform: rotate(180deg);
+}
+
+/* --- BLOC CENTRE & ANIMATION --- */
+.header-center {
+  flex: 1;
+  max-width: 50%; /* Évite de pousser les éléments sur les côtés */
+  margin: 0 40px;
+}
+
+.scroll-container {
+  overflow: hidden;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+.scroll-text {
+  display: inline-block;
+  padding-left: 100%;
+  animation: scroll-left 20s linear infinite;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #a0aec0;
+}
+
+@keyframes scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Mobile : on cache le texte défilant si c'est trop petit */
+@media (max-width: 900px) {
+  .header-center {
+    display: none;
+  }
+}
+
+.logout-btn-header {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid white;
+  color: white;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-left: 10px;
+  transition: background 0.3s;
+}
+
+.logout-btn-header:hover {
+  background: rgba(255, 0, 0, 0.4);
+}
+
+.header-center {
+  flex: 1;
+  overflow: hidden; /* Empêche le texte de déborder du bandeau */
+}
+
+/* Style pour le bouton au coin droit */
+.header-right {
+  display: flex;
+  align-items: center;
+  padding-right: 15px;
+}
+
+.logout-btn-top {
+  background: #444343; /* Un rouge élégant */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logout-btn-top:hover {
+  background: #ff6b81;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* À ajouter dans Header.css */
+.notification-badge {
+  background-color: #ff4757;
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: pulseBadge 2s infinite;
+}
+
+@keyframes pulseBadge {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+// App.css
+
+/* --- RESET ET BASE --- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  /* Transition fluide pour que le changement de thème soit beau */
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow: visible !important;
+  background-color: var(--bg-primary); /* CHANGÉ */
+  /* Cette ligne assure que TOUT change en fondu, pas d'un coup sec */
+  transition: background 0.5s ease-in-out, color 0.5s ease-in-out;
+}
+
+.App {
+  min-height: 100vh;
+  /* On utilise le gradient dynamique géré par ton JS */
+  background: var(--gradient); 
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- LAYOUT PRINCIPAL --- */
+.container {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  flex: 1;
+  align-items: flex-start;
+  overflow: hidden;
+  position: relative;
+  background-color: var(--bg-primary); /* CHANGÉ */
+}
+
+/* --- PANNEAU GAUCHE (Fixe) --- */
+.left-panel {
+  width: 350px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 50px;
+  height: calc(100vh - 80px);
+  padding: 0px;
+  overflow-y: auto;
+  z-index: 20;
+  background-color: var(--bg-primary); /* CHANGÉ */
+}
+
+/* --- PANNEAU DROIT (Scrollable) --- */
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-primary); /* CHANGÉ */
+  padding: 20px;
+  min-width: 0;
+  overflow-y: auto; 
+  overflow-x: hidden;
+}
+
+/* --- STRUCTURE INTERNE DU PANNEAU DROIT --- */
+.messages-list-container {
+  display: flex;
+  flex-direction: column;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  gap: 10px;
+  margin-top: 30px;
+}
+
+.messages-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0 10px;
+}
+
+.messages-header h2 {
+  color: var(--text-primary); /* CHANGÉ */
+  font-size: 1.5rem;
+  border-bottom: 3px solid var(--primary-color); /* CHANGÉ */
+  padding-bottom: 0.5rem;
+}
+
+/* --- UTILITAIRES --- */
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  color: var(--text-primary); /* CHANGÉ */
+}
+
+.filter-controls input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary-color); /* Couleur de la checkbox */
+}
+
+/* --- BOUTON ACTUALISER --- */
+.title-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.refresh-btn {
+  background: var(--bg-secondary); /* CHANGÉ */
+  border: 1px solid var(--border-color); /* CHANGÉ */
+  color: var(--text-primary); /* CHANGÉ */
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px var(--shadow); /* CHANGÉ */
+  font-size: 14px;
+}
+
+.refresh-btn:hover {
+  background: var(--bg-primary);
+  border-color: var(--primary-color);
+  transform: scale(1.1);
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .left-panel {
+    width: 100%;
+    position: static;
+    height: auto;
+  }
+  .right-panel {
+    width: 100%;
+    padding: 10px;
+  }
+}
+
+/* Animations habituelles */
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.refresh-btn.spinning {
+  animation: rotate 1s linear infinite;
+  color: var(--primary-color);
+}
+
+.notification-toast {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: var(--bg-secondary);
+  border-left: 4px solid var(--primary-color);
+  padding: 12px 18px;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  z-index: 2000;
+  animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1px solid var(--border-color);
+  max-width: 300px;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(120%); }
+  to { transform: translateX(0); }
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toast-text strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--primary-color);
+}
+
+.toast-text p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+}
+
+
+import React from 'react';
+import './Header.css';
+
+const Header = ({ apiStatus, currentUserEmail, setupUser, signOut, unreadCount }) => {
+  console.log("Nombre non lus dans le Header :", unreadCount); // <--- AJOUTE ÇA POUR TESTER
+  return (
+    <header className="App-header">
+      {/* GAUCHE : Logo et Infos */}
+      <div className="header-left">
+        <h1>💬 Messagerie AWS</h1>
+        <div className="header-left-info">
+          <div className={`api-status ${apiStatus}`}>
+            {apiStatus === 'connected' ? '🟢 Connectée' : 
+             apiStatus === 'disconnected' ? '🔴 Déconnectée' : 
+             '🟡 Vérif...'}
+          </div>
+          <span className="user-info">👤 {currentUserEmail.split('@')[0] || 'Anonyme'}</span>
+          <button onClick={setupUser} className="refresh-btn" title="Actualiser">🔄</button>
+        </div>
+      </div>
+
+      {/* CENTRE : Texte défilant dynamique */}
+      <div className="header-center">
+        <div className="scroll-container">
+          <p className="scroll-text">
+            {unreadCount > 0 
+              ? `🔔 ATTENTION : Vous avez ${unreadCount} nouveau(x) message(s) non lu(s) ! — ` 
+              : `🚀 Bienvenue sur la messagerie AWS — Update v2.4 disponible — `}
+            Serveur : EU-WEST-3 opérationnel (Paris)
+          </p>
+        </div>
+      </div>
+
+      {/* DROITE : Notifications & Déconnexion */}
+      <div className="header-right">
+        {/* Icône de cloche avec Badge conditionnel */}
+        <div className="notification-bell-wrapper">
+          <span className="bell-icon">🔔</span>
+          {unreadCount > 0 && (
+            <span className="notification-badge">{unreadCount}</span>
+          )}
+        </div>
+
+        <button onClick={signOut} className="logout-btn-top" title="Se déconnecter">
+          🚪 Déconnexion
+        </button>
+      </div>
+    </header>
+  );
+};
+
+export default Header;
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { fetchAuthSession } from 'aws-amplify/auth';
+
+// Imports de tes composants
+import Auth from './Auth';
+import Header from './Header';
+import MessageForm from './MessageForm';
+import Filters from './Filters';
+import Architecture from './Architecture';
+import MessageList from './MessageList';
+import ThemeToggle from './ThemeToggle';
+import './App.css';
+
+const API_URL = 'https://4rca5iti3f.execute-api.eu-west-3.amazonaws.com/dev';
+
+function App() {
+  // --- ÉTATS ---
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [apiStatus, setApiStatus] = useState('checking');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  
+  // --- ÉTATS NOTIFICATIONS & TEMPS RÉEL ---
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [lastNotification, setLastNotification] = useState(null);
+  const [isWindowFocused, setIsWindowFocused] = useState(true);
+
+  // --- ÉTATS FILTRAGE ---
+  const [showOnlyMyMessages, setShowOnlyMyMessages] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterUser, setFilterUser] = useState('all');
+  const [filterDate, setFilterDate] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+
+  // --- LOGIQUE UTILISATEUR & API ---
+  const getCurrentUser = useCallback(async () => {
+    try {
+      const session = await fetchAuthSession();
+      return session?.tokens?.idToken?.payload?.email || session?.username || null;
+    } catch (err) { return null; }
+  }, []);
+
+  const setupUser = useCallback(async () => {
+    const email = await getCurrentUser();
+    setCurrentUserEmail(email || '');
+  }, [getCurrentUser]);
+
+  const triggerPushNotification = useCallback((msg) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(`Message de ${msg.user.split('@')[0]}`, {
+        body: msg.text.substring(0, 60) + "...",
+        icon: "/favicon.ico"
+      });
+    }
+  }, []);
+
+  // 1. On stabilise la fonction de récupération
+const fetchMessages = useCallback(async (isSilent = false) => {
+  try {
+    // On ne montre le chargement QUE si on n'a vraiment AUCUN message au début
+    if (!isSilent && messages.length === 0) setLoading(true);
+
+    const response = await fetch(`${API_URL}/messages`);
+    const data = await response.json();
+
+    if (data.success) {
+      // Logique de notification (ne compare que si des messages existent déjà)
+      /* if (messages.length > 0 && data.messages.length > messages.length) {
+        const newest = data.messages[0];
+        if (newest.user !== currentUserEmail && !isWindowFocused) {
+          setUnreadCount(prev => prev + 1);
+          triggerPushNotification(newest);
+        }
+        setLastNotification(newest);
+            setTimeout(() => setLastNotification(null), 5000);
+      }
+       */
+      // IMPORTANT : On ne met à jour QUE si les données ont changé 
+      // pour éviter les re-renders inutiles
+      /* setMessages(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(data.messages)) return prev;
+        return data.messages;
+      }); */
+      // Correction ici : on définit 'newest'
+  if (messages.length > 0 && data.messages.length > messages.length) {
+    const newest = data.messages[0]; // <--- IL MANQUAIT CETTE LIGNE
+
+    if (newest.user !== currentUserEmail) {
+      setUnreadCount(prev => prev + 1);
+      
+      if (!isWindowFocused) {
+        triggerPushNotification(newest);
+      }
+
+      setLastNotification(newest);
+      
+      // Auto-suppression après 10 secondes pour ton test
+      setTimeout(() => {
+        setUnreadCount(0);
+      }, 10000);
+    }
+  }
+  setMessages(data.messages);
+    }
+  } catch (err) {
+    console.error("Erreur API:", err);
+  } finally {
+    setLoading(false);
+  }
+}, [currentUserEmail, isWindowFocused, messages.length, triggerPushNotification]); 
+// Note : j'ai réduit les dépendances ici pour stopper la boucle
+
+// 2. Un intervalle de polling qui ne bouge pas
+useEffect(() => {
+  if (!currentUserEmail) return;
+
+  const interval = setInterval(() => {
+    fetchMessages(true); // Toujours silencieux ici
+  }, 10000);
+
+  return () => clearInterval(interval);
+}, [fetchMessages, currentUserEmail]);
+  /* const fetchMessages = useCallback(async (isSilent = false) => {
+    try {
+      if (!isSilent) setLoading(true);
+      const response = await fetch(`${API_URL}/messages`);
+      const data = await response.json();
+      
+      if (data.success) {
+        // Détection de nouveaux messages pour notification (si on en a déjà en mémoire)
+        if (messages.length > 0 && data.messages.length > messages.length) {
+          const newest = data.messages[0]; 
+          if (newest.user !== currentUserEmail) {
+            if (!isWindowFocused) {
+              setUnreadCount(prev => prev + 1);
+              triggerPushNotification(newest);
+            }
+            setLastNotification(newest);
+            setTimeout(() => setLastNotification(null), 5000);
+          }
+        }
+        setMessages(data.messages);
+      }
+    } catch (err) {
+      setError('Erreur chargement: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [messages, currentUserEmail, isWindowFocused, triggerPushNotification]); */
+
+  const checkApi = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/messages/health`);
+      const data = await response.json();
+      setApiStatus(data.status === 'ok' ? 'connected' : 'disconnected');
+    } catch (err) { setApiStatus('disconnected'); }
+  }, []);
+
+  // --- EFFETS ---
+  useEffect(() => {
+    checkApi();
+    fetchMessages();
+    setupUser();
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [checkApi, fetchMessages, setupUser]);
+
+  // Polling 10s
+  useEffect(() => {
+    const interval = setInterval(() => fetchMessages(true), 10000); 
+    return () => clearInterval(interval);
+  }, [fetchMessages]);
+
+  // Badge Onglet
+  /* useEffect(() => {
+    const onFocus = () => { setIsWindowFocused(true); setUnreadCount(0); };
+    const onBlur = () => setIsWindowFocused(false);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    document.title = unreadCount > 0 ? `(${unreadCount}) Nouveau message !` : "Chat Architecture AWS";
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [unreadCount]); */
+  // Dans App.js
+
+// 1. Modifiez le useEffect du Focus
+useEffect(() => {
+  const onFocus = () => {
+    setIsWindowFocused(true);
+    document.title = "Chat Architecture AWS";
+    
+    // On ne remet plus à zéro ici immédiatement !
+    // Le badge restera visible même quand vous revenez sur l'onglet.
+  };
+  
+  const onBlur = () => setIsWindowFocused(false);
+
+  window.addEventListener('focus', onFocus);
+  window.addEventListener('blur', onBlur);
+  
+  return () => {
+    window.removeEventListener('focus', onFocus);
+    window.removeEventListener('blur', onBlur);
+  };
+}, []);
+
+// 2. Modifiez la détection des messages dans fetchMessages
+// Pour que le badge s'incrémente même si vous êtes devant l'écran
+if (newest.user !== currentUserEmail) {
+  // On incrémente TOUJOURS le badge pour ton test
+  setUnreadCount(prev => prev + 1);
+  
+  if (!isWindowFocused) {
+    triggerPushNotification(newest);
+  }
+
+  // Optionnel : Lancer le compte à rebours de 10 secondes pour effacer le badge
+  setTimeout(() => {
+    setUnreadCount(0);
+  }, 10000); 
+}
+
+  // --- ACTIONS ---
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { setError("Max 5Mo"); return; }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    try {
+      setLoading(true);
+      const messageData = { text: newMessage, user: currentUserEmail || 'Anonyme' };
+      if (selectedImage) { messageData.imageBase64 = imagePreview; messageData.imageType = selectedImage.type; }
+      const response = await fetch(`${API_URL}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(messageData)
+      });
+      if (response.ok) {
+        setNewMessage(''); setSelectedImage(null); setImagePreview(null);
+        fetchMessages(true);
+      }
+    } catch (err) { setError(err.message); } finally { setLoading(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Supprimer ?')) return;
+    try {
+      await fetch(`${API_URL}/messages/${id}`, { method: 'DELETE' });
+      fetchMessages(true);
+    } catch (err) { setError(err.message); }
+  };
+
+  const getUniqueUsers = useCallback(() => [...new Set(messages.map(msg => msg.user))].sort(), [messages]);
+  
+  const displayedMessages = messages
+    .filter(msg => !showOnlyMyMessages || msg.user === currentUserEmail)
+    .filter(msg => msg.text.toLowerCase().includes(searchTerm.toLowerCase()) || msg.user.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter(msg => filterUser === 'all' || msg.user === filterUser)
+    .sort((a, b) => sortBy === 'newest' ? new Date(b.timestamp) - new Date(a.timestamp) : new Date(a.timestamp) - new Date(b.timestamp));
+
+    const clearNotifications = () => {
+  setUnreadCount(0);
+};
+  // --- RENDU ---
+  return (
+    <Auth>
+      {({ signOut, user }) => (
+        <div className="App">
+          {/* Notifications Toast */}
+          {lastNotification && (
+            <div className="notification-toast">
+              <div className="toast-content">
+                <span>🔔</span>
+                <div className="toast-text">
+                  <strong>{lastNotification.user.split('@')[0]}</strong>
+                  <p>{lastNotification.text.substring(0, 40)}...</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Le ThemeToggle est bien ICI à l'intérieur d'Auth */}
+          <ThemeToggle />
+
+          <Header 
+            apiStatus={apiStatus} 
+            currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail} 
+            setupUser={setupUser}
+            signOut={signOut}
+            unreadCount={unreadCount}
+            resetNotifications={clearNotifications}
+          />
+
+          <div className="container">
+            <div className="left-panel">
+              <MessageForm 
+                newMessage={newMessage} setNewMessage={setNewMessage}
+                handleSubmit={handleSubmit} handleImageSelect={handleImageSelect}
+                imagePreview={imagePreview} clearImage={() => {setSelectedImage(null); setImagePreview(null);}}
+                loading={loading} error={error} setError={setError}
+              />
+            </div>
+
+            <div className="right-panel">
+              <div className="messages-list-container">
+                <Filters 
+                  searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                  filterUser={filterUser} setFilterUser={setFilterUser}
+                  filterDate={filterDate} setFilterDate={setFilterDate}
+                  sortBy={sortBy} setSortBy={setSortBy}
+                  users={getUniqueUsers()} totalMessages={messages.length}
+                  filteredCount={displayedMessages.length}
+                />
+                
+                <div className="messages-header">
+                  <div className="title-section">
+                    <h2>Flux de messages ({displayedMessages.length})</h2>
+                    <button className={`refresh-btn ${loading ? 'spinning' : ''}`} onClick={() => fetchMessages()} disabled={loading}>
+                      {loading ? '⏳' : '🔄'}
+                    </button>
+                    {/* <button 
+                      className={`refresh-btn ${loading && messages.length === 0 ? 'spinning' : ''}`} // On ne spin que si c'est le TOUT PREMIER chargement
+                      onClick={() => fetchMessages()} 
+                      disabled={loading}
+                      >
+                      {loading && messages.length === 0 ? '⏳' : '🔄'}
+                    </button> */}
+                  </div>
+                  <label className="filter-controls">
+                    <input type="checkbox" checked={showOnlyMyMessages} onChange={e => setShowOnlyMyMessages(e.target.checked)} />
+                    <span> Mes messages</span>
+                  </label>
+                </div>
+
+                <MessageList 
+                  messages={displayedMessages} onDelete={handleDelete} 
+                  currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail}
+                  loading={loading} searchTerm={searchTerm}
+                />
+              </div>
+            </div>
+          </div>
+          <Architecture />
+        </div>
+      )}
+    </Auth>
+  );
+}
+
+export default App;
+
+import React from 'react';
+import './Header.css';
+import { signOut } from 'lucide-react';
+
+export default function Header({ 
+  apiStatus, 
+  currentUserEmail, 
+  setupUser, 
+  signOut, 
+  notificationBadge 
+}) {
+  return (
+    <header className="App-header">
+      <div className="header-content">
+        <div className="header-left">
+          <h1>💬 Messagerie AWS</h1>
+          <p>Full-Stack avec temps réel</p>
+        </div>
+        
+        <div className="header-right">
+          {/* Badge de notifications */}
+          {notificationBadge}
+          
+          <div className={`api-status ${apiStatus}`}>
+            {apiStatus === 'connected' ? '🟢' : 
+             apiStatus === 'disconnected' ? '🔴' : '🟡'}
+          </div>
+          
+          <div className="user-info">
+            <span>👤 {currentUserEmail || 'Anonyme'}</span>
+          </div>
+          
+          <button onClick={signOut} className="signout-btn">
+            🚪
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
