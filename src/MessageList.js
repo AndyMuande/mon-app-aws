@@ -25,6 +25,22 @@ const MessageList = ({ messages, onDelete, currentUserEmail, loading, searchTerm
     }
   };
 
+  const handleEdit = async (messageId, newText) => {
+  try {
+    const response = await fetch(`${API_URL}/messages/${messageId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: newText })
+    });
+    
+    if (response.ok) {
+      onReactionUpdate(); // Rafraîchir les messages
+    }
+  } catch (error) {
+    console.error('Erreur édition:', error);
+  }
+};
+
   return (
     <div className="messages-content">
       {messages.length === 0 ? (
@@ -37,6 +53,7 @@ const MessageList = ({ messages, onDelete, currentUserEmail, loading, searchTerm
             onDelete={onDelete} 
             currentUserEmail={currentUserEmail}
             onReact={handleReaction}  // Passer la fonction au MessageCard
+            onEdit={handleEdit}  // Ajoutez cette ligne
           />
         ))
       )}

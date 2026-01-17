@@ -253,27 +253,30 @@ app.delete('/messages/:id', async (req, res) => {
   }
 });
 
-// PUT update message
+// PUT update message (texte + image + badge modifié)
 app.put('/messages/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { text, imageBase64, imageType } = req.body;
     
-    if (!text) {
+    if (!text || !text.trim()) {
       return res.status(400).json({ 
         success: false, 
         error: 'Le texte ne peut pas être vide' 
       });
     }
 
-    let updateExpression = 'set #text = :text, #timestamp = :timestamp';
+    // Base de l'update
+    let updateExpression = 'set #text = :text, #edited = :edited, #editedAt = :editedAt';
     let expressionAttributeNames = {
       '#text': 'text',
-      '#timestamp': 'timestamp'
+      '#edited': 'edited',
+      '#editedAt': 'editedAt'
     };
     let expressionAttributeValues = {
       ':text': text,
-      ':timestamp': new Date().toISOString()
+      ':edited': true,
+      ':editedAt': new Date().toISOString()
     };
 
     // Si une nouvelle image est fournie
@@ -292,15 +295,17 @@ app.put('/messages/:id', async (req, res) => {
         });
         
         await s3Client.send(putCommand);
-        
+
         updateExpression += ', #imageKey = :imageKey';
         expressionAttributeNames['#imageKey'] = 'imageKey';
         expressionAttributeValues[':imageKey'] = imageKey;
+
       } catch (error) {
         console.error('Erreur upload S3:', error);
       }
     }
 
+    // Commande finale
     const updateCommand = new UpdateCommand({
       TableName: tableName,
       Key: { id },
@@ -312,7 +317,7 @@ app.put('/messages/:id', async (req, res) => {
 
     const data = await dynamodb.send(updateCommand);
     
-    // Générer l'URL signée pour l'image
+    // Générer l'URL signée pour l'image si présente
     if (data.Attributes.imageKey) {
       const getCommand = new GetObjectCommand({
         Bucket: bucketName,
@@ -325,6 +330,7 @@ app.put('/messages/:id', async (req, res) => {
       success: true, 
       message: data.Attributes 
     });
+
   } catch (error) {
     console.error('Erreur PUT message:', error);
     res.status(500).json({ 
@@ -334,9 +340,6 @@ app.put('/messages/:id', async (req, res) => {
   }
 });
 
-app.listen(3000, function() {
-    console.log("App started");
-});
 
 // PUT - Ajouter/retirer une réaction
 app.put('/messages/:id/reactions', async (req, res) => {
@@ -351,7 +354,6 @@ app.put('/messages/:id/reactions', async (req, res) => {
       });
     }
 
-    // Récupérer le message actuel
     const getCommand = new GetCommand({
       TableName: tableName,
       Key: { id }
@@ -366,27 +368,21 @@ app.put('/messages/:id/reactions', async (req, res) => {
       });
     }
 
-    // Initialiser les réactions si elles n'existent pas
     let reactions = Item.reactions || {};
     if (!reactions[emoji]) {
       reactions[emoji] = [];
     }
 
-    // Toggle : ajouter ou retirer l'utilisateur
     const userIndex = reactions[emoji].indexOf(user);
     if (userIndex > -1) {
-      // L'utilisateur a déjà réagi, on retire
       reactions[emoji].splice(userIndex, 1);
-      // Supprimer l'emoji si plus personne n'a réagi
       if (reactions[emoji].length === 0) {
         delete reactions[emoji];
       }
     } else {
-      // Ajouter la réaction
       reactions[emoji].push(user);
     }
 
-    // Mettre à jour le message
     const updateCommand = new UpdateCommand({
       TableName: tableName,
       Key: { id },
@@ -403,6 +399,7 @@ app.put('/messages/:id/reactions', async (req, res) => {
       success: true, 
       message: data.Attributes 
     });
+
   } catch (error) {
     console.error('Erreur réaction:', error);
     res.status(500).json({ 

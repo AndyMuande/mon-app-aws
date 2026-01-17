@@ -7,7 +7,21 @@ const EMOJI_OPTIONS = [
   { emoji: '😂', name: 'Rire' },
   { emoji: '😮', name: 'Surpris' },
   { emoji: '😢', name: 'Triste' },
-  { emoji: '🎉', name: 'Fête' }
+  { emoji: '🎉', name: 'Fête' },
+  { emoji: '🥰', name: 'Amour' },
+  { emoji: '🥳', name: 'Fête' },
+  { emoji: '🥸', name: 'Masque' },
+  { emoji: '😊', name: 'Sourire' },
+  { emoji: '🥹', name: 'Larmes de joie' },
+  { emoji: '😂', name: 'Rire' },
+  { emoji: '😘', name: 'Baiser' },
+  { emoji: '😡', name: 'Colère' },
+  { emoji: '🫶', name: 'Cœur amoureux' },
+  { emoji: '😋', name: 'Saveur délicieuse' },
+  { emoji: '🔥', name: 'Feu' },
+  { emoji: '💯', name: 'Cent points' },
+  { emoji: '🚀', name: 'fusee' }
+
 ];
 
 export default function MessageReactions({ 

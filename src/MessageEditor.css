@@ -1,0 +1,107 @@
+.message-editor {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  background: var(--bg-primary, #f8f9fa);
+  border: 2px solid var(--primary-color, #667eea);
+  border-radius: 8px;
+}
+
+.message-editor-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  background: var(--bg-secondary, white);
+  color: var(--text-primary, #333);
+  transition: border-color 0.2s;
+}
+
+.message-editor-input:focus {
+  outline: none;
+  border-color: var(--primary-color, #667eea);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.message-editor-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.message-editor-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.editor-save-btn,
+.editor-cancel-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.editor-save-btn {
+  background: var(--gradient, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+  color: white;
+}
+
+.editor-save-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.editor-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editor-cancel-btn {
+  background: var(--bg-secondary, white);
+  color: var(--text-primary, #333);
+  border: 2px solid var(--border-color, #e0e0e0);
+}
+
+.editor-cancel-btn:hover:not(:disabled) {
+  background: var(--bg-primary, #f5f5f5);
+  border-color: var(--text-secondary, #999);
+}
+
+.editor-hint {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #666);
+  font-style: italic;
+}
+
+.editor-hint kbd {
+  padding: 2px 6px;
+  background: var(--bg-secondary, white);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+/* Animation d'apparition */
+.message-editor {
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

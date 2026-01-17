@@ -108,3 +108,40 @@
   color: white;
   border-color: #ff4d4d;
 }
+
+.edited-badge {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #999);
+  font-style: italic;
+  cursor: help;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.edited-badge:hover {
+  opacity: 1;
+}
+
+.message-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.edit-button {
+  background: var(--gradient, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.edit-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
