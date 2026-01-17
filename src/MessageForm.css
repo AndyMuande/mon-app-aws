@@ -82,7 +82,7 @@
 }
 
 .submit-button {
-  width: 100%;
+  /* width: 100%; */
   padding: 12px;
   background: var(--gradient); /* DYNAMIQUE avec ton thème */
   color: white;
@@ -92,6 +92,9 @@
   cursor: pointer;
   transition: transform 0.2s, opacity 0.2s;
   box-shadow: 0 4px 10px var(--shadow);
+  min-width: 100px; /* Réserve l'espace pour le texte */
+  display: inline-block;
+  text-align: center;
 }
 
 .submit-button:hover:not(:disabled) {
