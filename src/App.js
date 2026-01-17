@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 
-// Imports de tes composants
 import Auth from './Auth';
 import Header from './Header';
 import MessageForm from './MessageForm';
@@ -24,21 +23,23 @@ function App() {
   const [apiStatus, setApiStatus] = useState('checking');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   
+  // --- ÉTATS NOTIFICATIONS ---
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [lastNotification, setLastNotification] = useState(null);
+  const [isWindowFocused, setIsWindowFocused] = useState(true);
+
   // --- ÉTATS FILTRAGE ---
   const [showOnlyMyMessages, setShowOnlyMyMessages] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterUser, setFilterUser] = useState('all');
-  const [filterDate, setFilterDate] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
-  // --- LOGIQUE UTILISATEUR & API ---
+  // --- LOGIQUE UTILISATEUR ---
   const getCurrentUser = useCallback(async () => {
     try {
       const session = await fetchAuthSession();
       return session?.tokens?.idToken?.payload?.email || session?.username || null;
-    } catch (err) {
-      return null;
-    }
+    } catch (err) { return null; }
   }, []);
 
   const setupUser = useCallback(async () => {
@@ -46,106 +47,136 @@ function App() {
     setCurrentUserEmail(email || '');
   }, [getCurrentUser]);
 
-  const fetchMessages = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`${API_URL}/messages`);
-      const data = await response.json();
-      if (data.success) setMessages(data.messages);
-    } catch (err) {
-      setError('Erreur chargement: ' + err.message);
-    } finally {
-      setLoading(false);
+  const triggerPushNotification = useCallback((msg) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(`Message de ${msg.user.split('@')[0]}`, {
+        body: msg.text.substring(0, 60) + "...",
+        icon: "/favicon.ico"
+      });
     }
   }, []);
 
+  // Fonction pour effacer le badge rouge
+  const clearNotifications = () => {
+    setUnreadCount(0);
+    document.title = "Chat Architecture AWS";
+  };
+
+  // --- RÉCUPÉRATION DES MESSAGES ---
+  const fetchMessages = useCallback(async (isSilent = false) => {
+    try {
+      if (!isSilent && messages.length === 0) setLoading(true);
+
+      const response = await fetch(`${API_URL}/messages`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Calcul du nombre de nouveaux messages arrivés
+        const diff = data.messages.length - messages.length;
+
+        if (messages.length > 0 && diff > 0) {
+          const newest = data.messages[0];
+
+          // Si le message n'est pas de moi
+          if (newest.user !== currentUserEmail) {
+            // On ajoute le nombre exact de nouveaux messages au badge
+            setUnreadCount(prev => prev + diff);
+            
+            // Notification système (si onglet caché)
+            if (!isWindowFocused) {
+              triggerPushNotification(newest);
+            }
+
+            // Toast visuel (en haut à droite)
+            setLastNotification(newest);
+            setTimeout(() => setLastNotification(null), 5000);
+          }
+        }
+        
+        // Mise à jour stable de la liste des messages
+        setMessages(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(data.messages)) return prev;
+          return data.messages;
+        });
+      }
+    } catch (err) {
+      console.error("Erreur API:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUserEmail, isWindowFocused, messages.length, triggerPushNotification]);
+
+  // --- EFFETS ---
   const checkApi = useCallback(async () => {
     try {
       const response = await fetch(`${API_URL}/messages/health`);
       const data = await response.json();
       setApiStatus(data.status === 'ok' ? 'connected' : 'disconnected');
-    } catch (err) {
-      setApiStatus('disconnected');
-    }
+    } catch (err) { setApiStatus('disconnected'); }
   }, []);
 
-  // Effet initial au chargement
   useEffect(() => {
     checkApi();
     fetchMessages();
     setupUser();
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }, [checkApi, fetchMessages, setupUser]);
 
-  // --- LOGIQUE TEMPS RÉEL (POLLING) ---
+  // Polling toutes les 5 secondes (plus réactif pour le badge)
   useEffect(() => {
-    // Rafraîchit les messages toutes les 10 secondes
-    const interval = setInterval(() => {
-      if (!loading) {
-        fetchMessages();
-      }
-    }, 10000); 
-
-    // Nettoyage de l'intervalle si on quitte la page
+    if (!currentUserEmail) return;
+    const interval = setInterval(() => fetchMessages(true), 5000); 
     return () => clearInterval(interval);
-  }, [fetchMessages, loading]);
+  }, [fetchMessages, currentUserEmail]);
 
-  // --- CHARGER LES PRÉFÉRENCES DE FILTRES ---
+  // Gestion du Focus et Titre
   useEffect(() => {
-    const savedFilters = localStorage.getItem('messageFilters');
-    if (savedFilters) {
-      try {
-        const filters = JSON.parse(savedFilters);
-        setSearchTerm(filters.searchTerm || '');
-        setFilterUser(filters.filterUser || 'all');
-        setFilterDate(filters.filterDate || 'all');
-        setSortBy(filters.sortBy || 'newest');
-        setShowOnlyMyMessages(filters.showOnlyMyMessages || false);
-      } catch (e) {
-        console.error('Erreur chargement filtres:', e);
-      }
-    }
+    const onFocus = () => setIsWindowFocused(true);
+    const onBlur = () => setIsWindowFocused(false);
+    
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+    };
   }, []);
 
-  // --- SAUVEGARDER LES PRÉFÉRENCES DE FILTRES ---
   useEffect(() => {
-    const filters = { searchTerm, filterUser, filterDate, sortBy, showOnlyMyMessages };
-    localStorage.setItem('messageFilters', JSON.stringify(filters));
-  }, [searchTerm, filterUser, filterDate, sortBy, showOnlyMyMessages]);
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) Nouveau message !`;
+    } else {
+      document.title = "Chat Architecture AWS";
+    }
+  }, [unreadCount]);
 
-  // --- GESTION DES IMAGES ---
+  // --- ACTIONS FORMULAIRE ---
+  // --- ACTIONS IMAGES ---
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError("L'image est trop lourde (max 5Mo)");
-        return;
+      if (file.size > 5 * 1024 * 1024) { 
+        setError("L'image est trop lourde (max 5Mo)"); 
+        return; 
       }
       setSelectedImage(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
+      reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
     }
   };
-
-  const clearImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-  };
-
-  // --- ACTIONS ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
-    setError(null);
-
     try {
       setLoading(true);
       const messageData = { text: newMessage, user: currentUserEmail || 'Anonyme' };
-      if (selectedImage) {
-        messageData.imageBase64 = imagePreview;
-        messageData.imageType = selectedImage.type;
+      if (selectedImage) { 
+        messageData.imageBase64 = imagePreview; 
+        messageData.imageType = selectedImage.type; 
       }
       const response = await fetch(`${API_URL}/messages`, {
         method: 'POST',
@@ -153,16 +184,13 @@ function App() {
         body: JSON.stringify(messageData)
       });
       if (response.ok) {
-        setNewMessage('');
-        setSelectedImage(null);
+        setNewMessage(''); 
+        setSelectedImage(null); 
         setImagePreview(null);
-        fetchMessages();
-      } else {
-        throw new Error("Erreur lors de l'envoi");
+        fetchMessages(true);
       }
     } catch (err) { 
-      setError(err.message);
-      setTimeout(() => setError(null), 5000); // Efface l'erreur après 5s
+      setError(err.message); 
     } finally { 
       setLoading(false); 
     }
@@ -172,171 +200,89 @@ function App() {
     if (!window.confirm('Supprimer ce message ?')) return;
     try {
       await fetch(`${API_URL}/messages/${id}`, { method: 'DELETE' });
-      fetchMessages();
-    } catch (err) { 
-      setError(err.message); 
-    }
+      fetchMessages(true);
+    } catch (err) { setError(err.message); }
   };
 
-  // --- FILTRAGE AMÉLIORÉ ---
-  const getFilteredAndSortedMessages = useCallback(() => {
-    let filtered = [...messages];
-
-    // Filtre "Mes messages uniquement"
-    if (showOnlyMyMessages) {
-      filtered = filtered.filter(msg => msg.user === currentUserEmail);
-    }
-
-    // Filtre par recherche textuelle
-    if (searchTerm.trim()) {
-      filtered = filtered.filter(msg =>
-        msg.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        msg.user.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // Filtre par utilisateur spécifique
-    if (filterUser !== 'all') {
-      filtered = filtered.filter(msg => msg.user === filterUser);
-    }
-
-    // Filtre par date
-    if (filterDate !== 'all') {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
-      filtered = filtered.filter(msg => {
-        const msgDate = new Date(msg.timestamp);
-        
-        switch (filterDate) {
-          case 'today':
-            return msgDate >= today;
-          
-          case 'week':
-            const weekAgo = new Date(today);
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            return msgDate >= weekAgo;
-          
-          case 'month':
-            const monthAgo = new Date(today);
-            monthAgo.setMonth(monthAgo.getMonth() - 1);
-            return msgDate >= monthAgo;
-          
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Tri
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.timestamp) - new Date(a.timestamp);
-        
-        case 'oldest':
-          return new Date(a.timestamp) - new Date(b.timestamp);
-        
-        case 'user':
-          return a.user.localeCompare(b.user);
-        
-        default:
-          return 0;
-      }
-    });
-
-    return filtered;
-  }, [messages, showOnlyMyMessages, searchTerm, filterUser, filterDate, sortBy, currentUserEmail]);
-
-  // Récupérer la liste unique des utilisateurs
-  const getUniqueUsers = useCallback(() => {
-    return [...new Set(messages.map(msg => msg.user))].sort();
-  }, [messages]);
-
-  // Messages filtrés
-  const displayedMessages = getFilteredAndSortedMessages();
+  // --- FILTRAGE ---
+  const getUniqueUsers = useCallback(() => [...new Set(messages.map(msg => msg.user))].sort(), [messages]);
+  
+  const displayedMessages = messages
+    .filter(msg => !showOnlyMyMessages || msg.user === currentUserEmail)
+    .filter(msg => msg.text.toLowerCase().includes(searchTerm.toLowerCase()) || msg.user.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter(msg => filterUser === 'all' || msg.user === filterUser)
+    .sort((a, b) => sortBy === 'newest' ? new Date(b.timestamp) - new Date(a.timestamp) : new Date(a.timestamp) - new Date(b.timestamp));
 
   // --- RENDU ---
   return (
     <Auth>
       {({ signOut, user }) => (
         <div className="App">
-          {/* Bouton de personnalisation du thème */}
+          {/* Toast Notification */}
+          {lastNotification && (
+            <div className="notification-toast">
+              <div className="toast-content">
+                <span>🔔</span>
+                <div className="toast-text">
+                  <strong>{lastNotification.user.split('@')[0]}</strong>
+                  <p>{lastNotification.text.substring(0, 40)}...</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <ThemeToggle />
+
           <Header 
             apiStatus={apiStatus} 
             currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail} 
             setupUser={setupUser}
             signOut={signOut}
+            unreadCount={unreadCount}
+            resetNotifications={clearNotifications}
           />
 
           <div className="container">
             <div className="left-panel">
               <MessageForm 
-                newMessage={newMessage}
-                setNewMessage={setNewMessage}
-                handleSubmit={handleSubmit}
-                handleImageSelect={handleImageSelect}
-                imagePreview={imagePreview}
-                clearImage={clearImage}
-                loading={loading}
-                error={error}
-                setError={setError}
+                newMessage={newMessage} setNewMessage={setNewMessage}
+                handleSubmit={handleSubmit} handleImageSelect={handleImageSelect}
+                imagePreview={imagePreview} clearImage={() => {setSelectedImage(null); setImagePreview(null);}}
+                loading={loading} error={error} setError={setError}
               />
             </div>
 
             <div className="right-panel">
               <div className="messages-list-container">
                 <Filters 
-                  searchTerm={searchTerm} 
-                  setSearchTerm={setSearchTerm}
-                  filterUser={filterUser} 
-                  setFilterUser={setFilterUser}
-                  filterDate={filterDate} 
-                  setFilterDate={setFilterDate}
-                  sortBy={sortBy} 
-                  setSortBy={setSortBy}
-                  users={getUniqueUsers()}
-                  totalMessages={messages.length}
+                  searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                  filterUser={filterUser} setFilterUser={setFilterUser}
+                  sortBy={sortBy} setSortBy={setSortBy}
+                  users={getUniqueUsers()} totalMessages={messages.length}
                   filteredCount={displayedMessages.length}
                 />
                 
                 <div className="messages-header">
                   <div className="title-section">
-                    <h2>
-                      Flux de messages ({displayedMessages.length}
-                      {displayedMessages.length !== messages.length && `/${messages.length}`})
-                    </h2>
-                    <button 
-                      className={`refresh-btn ${loading ? 'spinning' : ''}`} 
-                      onClick={fetchMessages}
-                      title="Actualiser les messages"
-                      disabled={loading}
-                    >
+                    <h2>Flux de messages ({displayedMessages.length})</h2>
+                    <button className={`refresh-btn ${loading ? 'spinning' : ''}`} onClick={() => fetchMessages()} disabled={loading}>
                       {loading ? '⏳' : '🔄'}
                     </button>
                   </div>
                   <label className="filter-controls">
-                    <input 
-                      type="checkbox" 
-                      checked={showOnlyMyMessages} 
-                      onChange={e => setShowOnlyMyMessages(e.target.checked)} 
-                    />
+                    <input type="checkbox" checked={showOnlyMyMessages} onChange={e => setShowOnlyMyMessages(e.target.checked)} />
                     <span> Mes messages</span>
                   </label>
                 </div>
 
                 <MessageList 
-                  messages={displayedMessages} 
-                  onDelete={handleDelete} 
+                  messages={displayedMessages} onDelete={handleDelete} 
                   currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail}
-                  loading={loading}
-                  searchTerm={searchTerm}
+                  loading={loading} searchTerm={searchTerm}
                 />
               </div>
             </div>
           </div>
-          
           <Architecture />
         </div>
       )}

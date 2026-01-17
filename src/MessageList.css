@@ -61,3 +61,13 @@
   scrollbar-width: thin;
   scrollbar-color: var(--border-color) var(--bg-primary);
 }
+
+/* À ajouter dans MessageList.css */
+.new-message-animation {
+  animation: highlightNew 3s ease-out;
+}
+
+@keyframes highlightNew {
+  0% { background-color: var(--primary-color); opacity: 0.2; }
+  100% { background-color: transparent; }
+}
