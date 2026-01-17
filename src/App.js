@@ -1,330 +1,291 @@
-import { fetchAuthSession } from 'aws-amplify/auth';
-import { Hub } from '@aws-amplify/core';
-import Auth from './Auth';
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from './api';
+import { fetchAuthSession } from 'aws-amplify/auth';
+
+import Auth from './Auth';
+import Header from './Header';
+import MessageForm from './MessageForm';
+import Filters from './Filters';
+import Architecture from './Architecture';
+import MessageList from './MessageList';
+import ThemeToggle from './ThemeToggle';
 import './App.css';
 
-function App({ currentUser }) {
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [apiStatus, setApiStatus] = useState('checking');
-  const [showOnlyMyMessages, setShowOnlyMyMessages] = useState(false);
-  const [currentUserEmail, setCurrentUserEmail] = useState('');
+const API_URL = 'https://4rca5iti3f.execute-api.eu-west-3.amazonaws.com/dev';
 
-  // Vérifier la santé de l'API au chargement
-  // Stable helpers using useCallback to satisfy lint rules
+function App() {
+  // --- ÉTATS ---
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [apiStatus, setApiStatus] = useState('checking');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  
+  // --- ÉTATS NOTIFICATIONS ---
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [lastNotification, setLastNotification] = useState(null);
+  const [isWindowFocused, setIsWindowFocused] = useState(true);
+
+  // --- ÉTATS FILTRAGE ---
+  const [showOnlyMyMessages, setShowOnlyMyMessages] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterUser, setFilterUser] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+
+  // --- LOGIQUE UTILISATEUR ---
   const getCurrentUser = useCallback(async () => {
     try {
       const session = await fetchAuthSession();
-      // Try multiple shapes to extract the email
-      const email =
-        (session?.getIdToken && typeof session.getIdToken === 'function' ? session.getIdToken().payload?.email : null)
-        || session?.idToken?.payload?.email
-        || session?.tokens?.idToken?.payload?.email
-        || session?.username
-        || null;
-
-      return email || null;
-    } catch (error) {
-      console.error('Erreur récupération utilisateur:', error);
-      return null;
-    }
+      return session?.tokens?.idToken?.payload?.email || session?.username || null;
+    } catch (err) { return null; }
   }, []);
 
   const setupUser = useCallback(async () => {
     const email = await getCurrentUser();
-    console.debug('setupUser: detected email ->', email);
     setCurrentUserEmail(email || '');
   }, [getCurrentUser]);
 
-  const checkApi = useCallback(async () => {
-    try {
-      await api.checkHealth();
-      setApiStatus('connected');
-    } catch (error) {
-      setApiStatus('disconnected');
-      console.error('Erreur API:', error);
+  const triggerPushNotification = useCallback((msg) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(`Message de ${msg.user.split('@')[0]}`, {
+        body: msg.text.substring(0, 60) + "...",
+        icon: "/favicon.ico"
+      });
     }
   }, []);
 
-  const loadMessages = useCallback(async () => {
+  // Fonction pour effacer le badge rouge
+  const clearNotifications = () => {
+    setUnreadCount(0);
+    document.title = "Chat Architecture AWS";
+  };
+
+  // --- RÉCUPÉRATION DES MESSAGES ---
+  const fetchMessages = useCallback(async (isSilent = false) => {
     try {
-      const data = await api.getMessages();
-      if (data && data.success === false) {
-        console.error('Erreur chargement messages:', data);
-        alert('Erreur récupération messages: ' + (data.error || 'voir la console'));
-        return;
+      if (!isSilent && messages.length === 0) setLoading(true);
+
+      const response = await fetch(`${API_URL}/messages`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Calcul du nombre de nouveaux messages arrivés
+        const diff = data.messages.length - messages.length;
+
+        if (messages.length > 0 && diff > 0) {
+          const newest = data.messages[0];
+
+          // Si le message n'est pas de moi
+          if (newest.user !== currentUserEmail) {
+            // On ajoute le nombre exact de nouveaux messages au badge
+            setUnreadCount(prev => prev + diff);
+            
+            // Notification système (si onglet caché)
+            if (!isWindowFocused) {
+              triggerPushNotification(newest);
+            }
+
+            // Toast visuel (en haut à droite)
+            setLastNotification(newest);
+            setTimeout(() => setLastNotification(null), 5000);
+          }
+        }
+        
+        // Mise à jour stable de la liste des messages
+        setMessages(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(data.messages)) return prev;
+          return data.messages;
+        });
       }
-      if (data && Array.isArray(data.messages)) {
-        setMessages(data.messages);
-      } else if (Array.isArray(data)) {
-        setMessages(data);
-      } else {
-        setMessages([]);
-      }
-    } catch (error) {
-      console.error('Erreur chargement messages:', error);
-      alert('Erreur récupération messages: ' + error.message);
+    } catch (err) {
+      console.error("Erreur API:", err);
+    } finally {
+      setLoading(false);
     }
+  }, [currentUserEmail, isWindowFocused, messages.length, triggerPushNotification]);
+
+  // --- EFFETS ---
+  const checkApi = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/messages/health`);
+      const data = await response.json();
+      setApiStatus(data.status === 'ok' ? 'connected' : 'disconnected');
+    } catch (err) { setApiStatus('disconnected'); }
   }, []);
 
   useEffect(() => {
     checkApi();
-    loadMessages();
+    fetchMessages();
     setupUser();
-  }, [checkApi, loadMessages, setupUser]);
-
-  // Sync with Authenticator-provided user when available
-  useEffect(() => {
-    if (!currentUser) {
-      setCurrentUserEmail('');
-      return;
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
-    const email = currentUser.signInDetails?.loginId || currentUser.username || currentUser.attributes?.email || null;
-    console.debug('Auth prop user ->', email);
-    setCurrentUserEmail(email || '');
-  }, [currentUser]);
+  }, [checkApi, fetchMessages, setupUser]);
 
-
-
-  // Listen to Amplify Auth events to update UI automatically (safe listener + cleanup)
+  // Polling toutes les 5 secondes (plus réactif pour le badge)
   useEffect(() => {
-    if (typeof Hub === 'undefined' || Hub === null || typeof Hub.listen !== 'function') {
-      console.debug('Amplify Hub is not available, skipping auth listener');
-    } else {
-      const listener = (capsule) => {
-        try {
-          const { channel, payload } = capsule;
-          console.debug('Amplify Hub event', channel, payload?.event || payload);
-          if (channel === 'auth' && ['signIn','signOut','signUp','signIn_failure','signOut_failure'].includes(payload?.event)) {
-            // Refresh user info and messages on auth changes
-            setupUser();
-            loadMessages();
-          }
-        } catch (err) {
-          console.error('Hub listener error:', err);
-        }
-      };
+    if (!currentUserEmail) return;
+    const interval = setInterval(() => fetchMessages(true), 5000); 
+    return () => clearInterval(interval);
+  }, [fetchMessages, currentUserEmail]);
 
-      // Some Amplify versions return a cleanup function from listen
-      const maybeRemove = Hub.listen('auth', listener);
-      return () => {
-        try {
-          if (typeof maybeRemove === 'function') {
-            maybeRemove();
-            return;
-          }
-          // Fallbacks
-          if (typeof Hub !== 'undefined' && typeof Hub.remove === 'function') {
-            Hub.remove('auth', listener);
-            return;
-          }
-          if (typeof Hub !== 'undefined' && typeof Hub.removeListener === 'function') {
-            Hub.removeListener('auth', listener);
-            return;
-          }
-        } catch (e) {
-          console.debug('Hub cleanup not available or failed:', e?.message);
-        }
-      };
-    }
-
-    // no cleanup if Hub not available
-    return () => {};
-  }, [setupUser, loadMessages]);
-
-  // Also listen to direct DOM event dispatched by Auth.js to cover all cases
+  // Gestion du Focus et Titre
   useEffect(() => {
-    const handler = (ev) => {
-      try {
-        const user = ev.detail;
-        console.debug('auth-user-changed event received', user);
-        if (!user) {
-          setCurrentUserEmail('');
-          return;
-        }
-        const email = user.signInDetails?.loginId || user.username || user.attributes?.email || null;
-        setCurrentUserEmail(email || '');
-        // refresh messages as well
-        loadMessages();
-      } catch (err) {
-        console.error('auth-user-changed handler error:', err);
-      }
+    const onFocus = () => setIsWindowFocused(true);
+    const onBlur = () => setIsWindowFocused(false);
+    
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
     };
-    window.addEventListener('auth-user-changed', handler);
-    return () => window.removeEventListener('auth-user-changed', handler);
-  }, [loadMessages]);
+  }, []);
 
-
-  const sendMessage = async () => {
-  if (!message.trim() || loading) return;
-
-  setLoading(true);
-  try {
-    const userEmail = await getCurrentUser();
-    const data = await api.sendMessage(message, userEmail);
-    if (data.success) {
-      await loadMessages();
-      setMessage('');
+  useEffect(() => {
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) Nouveau message !`;
+    } else {
+      document.title = "Chat Architecture AWS";
     }
-  } catch (error) {
-    console.error('Erreur envoi message:', error);
-    alert('Erreur lors de l\'envoi du message');
-  } finally {
-    setLoading(false);
-  }
-};
+  }, [unreadCount]);
 
-  /* const sendMessage = async () => {
-    if (!message.trim() || loading) return;
-
-    setLoading(true);
-    try {
-      const data = await api.sendMessage(message, 'Andy');
-      if (data.success) {
-        await loadMessages();
-        setMessage('');
+  // --- ACTIONS FORMULAIRE ---
+  // --- ACTIONS IMAGES ---
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { 
+        setError("L'image est trop lourde (max 5Mo)"); 
+        return; 
       }
-    } catch (error) {
-      console.error('Erreur envoi message:', error);
-      alert('Erreur lors de l\'envoi du message');
-    } finally {
-      setLoading(false);
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
     }
-  }; */
-
-  const deleteMessage = async (id) => {
-    if (!window.confirm('Voulez-vous vraiment supprimer ce message ?')) {
-      return;
-    }
-
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
     try {
-      const data = await api.deleteMessage(id);
-      if (data.success) {
-        await loadMessages();
+      setLoading(true);
+      const messageData = { text: newMessage, user: currentUserEmail || 'Anonyme' };
+      if (selectedImage) { 
+        messageData.imageBase64 = imagePreview; 
+        messageData.imageType = selectedImage.type; 
       }
-    } catch (error) {
-      console.error('Erreur suppression:', error);
-      alert('Erreur lors de la suppression');
+      const response = await fetch(`${API_URL}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(messageData)
+      });
+      if (response.ok) {
+        setNewMessage(''); 
+        setSelectedImage(null); 
+        setImagePreview(null);
+        fetchMessages(true);
+      }
+    } catch (err) { 
+      setError(err.message); 
+    } finally { 
+      setLoading(false); 
     }
   };
 
-  // Filtrer les messages affichés
-  const displayedMessages = (() => {
-    if (!showOnlyMyMessages) return messages;
-    const ids = [];
-    if (currentUserEmail) ids.push(currentUserEmail);
-    if (currentUser?.username) ids.push(currentUser.username);
-    if (currentUser?.attributes?.email) ids.push(currentUser.attributes.email);
-    // Also include common fallbacks
-    ids.push('Vous', 'Utilisateur');
-    return messages.filter(msg => ids.includes(msg.user));
-  })();
+  const handleDelete = async (id) => {
+    if (!window.confirm('Supprimer ce message ?')) return;
+    try {
+      await fetch(`${API_URL}/messages/${id}`, { method: 'DELETE' });
+      fetchMessages(true);
+    } catch (err) { setError(err.message); }
+  };
 
+  // --- FILTRAGE ---
+  const getUniqueUsers = useCallback(() => [...new Set(messages.map(msg => msg.user))].sort(), [messages]);
+  
+  const displayedMessages = messages
+    .filter(msg => !showOnlyMyMessages || msg.user === currentUserEmail)
+    .filter(msg => msg.text.toLowerCase().includes(searchTerm.toLowerCase()) || msg.user.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter(msg => filterUser === 'all' || msg.user === filterUser)
+    .sort((a, b) => sortBy === 'newest' ? new Date(b.timestamp) - new Date(a.timestamp) : new Date(a.timestamp) - new Date(b.timestamp));
+
+  // --- RENDU ---
   return (
     <Auth>
-    <div className="App">
-      <header className="App-header">
-        <h1>🚀 Application AWS Full-Stack</h1>
-        <p>React + Node.js + Lambda + DynamoDB</p>
-        <div className={`api-status ${apiStatus}`}>
-          {apiStatus === 'connected' ? '🟢 API Connectée' : 
-           apiStatus === 'disconnected' ? '🔴 API Déconnectée' : 
-           '🟡 Vérification...'}
-        </div>
-      </header>
+      {({ signOut, user }) => (
+        <div className="App">
+          {/* Toast Notification */}
+          {lastNotification && (
+            <div className="notification-toast">
+              <div className="toast-content">
+                <span>🔔</span>
+                <div className="toast-text">
+                  <strong>{lastNotification.user.split('@')[0]}</strong>
+                  <p>{lastNotification.text.substring(0, 40)}...</p>
+                </div>
+              </div>
+            </div>
+          )}
 
-      <div className="container">
-        <div className="message-box">
-          <h2>💬 Messages stockés dans DynamoDB ({messages.length})</h2>
-          <div className="filter-controls">
-            <label>
-              <input
-                type="checkbox"
-                checked={showOnlyMyMessages}
-                onChange={(e) => setShowOnlyMyMessages(e.target.checked)}
+          <ThemeToggle />
+
+          <Header 
+            apiStatus={apiStatus} 
+            currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail} 
+            setupUser={setupUser}
+            signOut={signOut}
+            unreadCount={unreadCount}
+            resetNotifications={clearNotifications}
+          />
+
+          <div className="container">
+            <div className="left-panel">
+              <MessageForm 
+                newMessage={newMessage} setNewMessage={setNewMessage}
+                handleSubmit={handleSubmit} handleImageSelect={handleImageSelect}
+                imagePreview={imagePreview} clearImage={() => {setSelectedImage(null); setImagePreview(null);}}
+                loading={loading} error={error} setError={setError}
               />
-              <span> Afficher uniquement mes messages</span>
-            </label>
-            <div style={{marginTop: '0.5rem', fontSize: '0.9rem', color: '#666', display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
-              <span>Connecté: <strong>{currentUserEmail || '—'}</strong></span>
-              <button onClick={setupUser} style={{fontSize: '0.8rem', padding: '0.2rem 0.4rem', borderRadius: 6}}>Actualiser</button>
+            </div>
+
+            <div className="right-panel">
+              <div className="messages-list-container">
+                <Filters 
+                  searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                  filterUser={filterUser} setFilterUser={setFilterUser}
+                  sortBy={sortBy} setSortBy={setSortBy}
+                  users={getUniqueUsers()} totalMessages={messages.length}
+                  filteredCount={displayedMessages.length}
+                />
+                
+                <div className="messages-header">
+                  <div className="title-section">
+                    <h2>Flux de messages ({displayedMessages.length})</h2>
+                    <button className={`refresh-btn ${loading ? 'spinning' : ''}`} onClick={() => fetchMessages()} disabled={loading}>
+                      {loading ? '⏳' : '🔄'}
+                    </button>
+                  </div>
+                  <label className="filter-controls">
+                    <input type="checkbox" checked={showOnlyMyMessages} onChange={e => setShowOnlyMyMessages(e.target.checked)} />
+                    <span> Mes messages</span>
+                  </label>
+                </div>
+
+                <MessageList 
+                  messages={displayedMessages} onDelete={handleDelete} 
+                  currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail}
+                  loading={loading} searchTerm={searchTerm}
+                />
+              </div>
             </div>
           </div>
-          <div className="messages-list">
-            {displayedMessages.length === 0 ? (
-              <p className="empty">{showOnlyMyMessages ? 'Aucun message pour cet utilisateur.' : 'Aucun message. Envoyez-en un !'}</p>
-            ) : (
-              displayedMessages.map(msg => (
-                <div key={msg.id} className="message">
-                  <div className="message-header">
-                    <span className="username">{msg.user}</span>
-                    <div>
-                      <span className="time">
-                        {new Date(msg.timestamp).toLocaleString('fr-FR')}
-                      </span>
-                      <button 
-                        className="delete-btn"
-                        onClick={() => deleteMessage(msg.id)}
-                        title="Supprimer"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                  <p className="message-text">{msg.text}</p>
-                </div>
-              ))
-            )}
-          </div>
+          <Architecture />
         </div>
-
-        <div className="input-box">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder="Tapez votre message..."
-            disabled={loading}
-          />
-          <button onClick={sendMessage} disabled={loading}>
-            {loading ? '⏳ Envoi...' : '📤 Envoyer'}
-          </button>
-        </div>
-      </div>
-
-      <div className="info-box">
-        <h3>📊 Architecture AWSSSS</h3>
-        <div className="architecture">
-          <div className="arch-item">
-            <div className="arch-icon">🎨</div>
-            <div>Frontend React</div>
-            <small>AWS Amplify</small>
-          </div>
-          <div className="arch-arrow">→</div>
-          <div className="arch-item">
-            <div className="arch-icon">🌐</div>
-            <div>API Gateway</div>
-            <small>REST API</small>
-          </div>
-          <div className="arch-arrow">→</div>
-          <div className="arch-item">
-            <div className="arch-icon">λ</div>
-            <div>Lambda</div>
-            <small>Node.js 22</small>
-          </div>
-          <div className="arch-arrow">→</div>
-          <div className="arch-item">
-            <div className="arch-icon">💾</div>
-            <div>DynamoDB</div>
-            <small>NoSQL Database</small>
-          </div>
-        </div>
-      </div>
-    </div>
+      )}
     </Auth>
   );
 }

@@ -1,0 +1,18 @@
+{
+  "resourceName": "messagesImages",
+  "policyUUID": "a97132e4",
+  "bucketName": "monappaws6f5b3a08713e4ff1bcb48e89d1c33d61",
+  "storageAccess": "authAndGuest",
+  "guestAccess": [
+    "CREATE_AND_UPDATE",
+    "READ",
+    "DELETE"
+  ],
+  "authAccess": [
+    "CREATE_AND_UPDATE",
+    "READ",
+    "DELETE"
+  ],
+  "triggerFunction": "NONE",
+  "groupAccess": {}
+}

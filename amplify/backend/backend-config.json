@@ -55,6 +55,13 @@
           ],
           "category": "storage",
           "resourceName": "messagesTable"
+        },
+        {
+          "attributes": [
+            "BucketName"
+          ],
+          "category": "storage",
+          "resourceName": "messagesImages"
         }
       ],
       "providerPlugin": "awscloudformation",
@@ -103,6 +110,11 @@
     }
   },
   "storage": {
+    "messagesImages": {
+      "dependsOn": [],
+      "providerPlugin": "awscloudformation",
+      "service": "S3"
+    },
     "messagesTable": {
       "providerPlugin": "awscloudformation",
       "service": "DynamoDB"

@@ -1,0 +1,188 @@
+/* Header.css - Version Finale avec Variables de Thème */
+
+.App-header {
+  height: 60px;
+  background: black;/*var(--bg-secondary);  Adaptatif au thème */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  z-index: 1000;
+  border-bottom: 1px solid var(--border-color);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box; /* Important pour éviter que le padding dépasse des 100% */
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  white-space: nowrap;
+}
+
+.header-left h1 {
+  font-size: 1.1rem;
+  margin: 0;
+  font-weight: 700;
+  color: var(--primary-color); /* Utilise la couleur vive du thème choisi */
+}
+
+.header-left-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 0.85rem;
+}
+
+.api-status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 0.75rem;
+  /*min-width: 100px; /* Réserve l'espace pour le texte */
+  display: inline-flex;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px; /* Force une largeur fixe pour que rien ne bouge */
+  height: 28px;
+  white-space: nowrap; /* Empêche le texte de passer à la ligne */
+}
+
+.user-info {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.refresh-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  font-size: 1rem;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.refresh-btn:hover {
+  transform: rotate(180deg) scale(1.2);
+}
+
+/* --- BLOC CENTRE & ANIMATION --- */
+.header-center {
+  flex: 1;
+  max-width: 45%;
+  margin: 0 40px;
+  overflow: hidden;
+}
+
+.scroll-container {
+  overflow: hidden;
+  white-space: nowrap;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 4px 15px;
+}
+
+.scroll-text {
+  display: inline-block;
+  padding-left: 100%;
+  animation: scroll-left 20s linear infinite;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+@keyframes scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* --- DROITE : NOTIFICATIONS & LOGOUT --- */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px; /* Espace entre la cloche et le bouton */
+  overflow: visible !important; /* Indispensable pour voir le badge qui dépasse */
+}
+
+/* Conteneur pour la cloche et le badge */
+.notification-bell-wrapper {
+  position: relative;
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  transition: transform 0.2s;
+}
+
+.notification-bell-wrapper:hover {
+  transform: scale(1.1);
+}
+
+.notification-badge {
+  background-color: #ff4757; /* On garde un rouge vif pour l'alerte */
+  color: white;
+  font-size: 0.7rem;
+  padding: 2px 5px;
+  border-radius: 50%;
+  position: absolute;
+  top: -2;
+  right: -2px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  border: 2px solid var(--bg-secondary); /* Détache le badge du header */
+  min-width: 18px;
+  height: 18px;
+  text-align: center;
+  animation: pulseBadge 2s infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes pulseBadge {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(255, 71, 87, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); }
+}
+
+.logout-btn-top {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logout-btn-top:hover {
+  background: #ff4757; /* Change au rouge uniquement au hover */
+  color: white;
+  border-color: #ff4757;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 900px) {
+  .header-center {
+    display: none;
+  }
+}

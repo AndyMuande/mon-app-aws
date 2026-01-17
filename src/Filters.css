@@ -1,0 +1,102 @@
+/* Filters.css */
+.filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Utilisation des variables pour le mode sombre */
+  background: var(--bg-secondary); 
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  width: 100%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  min-height: fit-content;
+  box-shadow: 0 4px 6px var(--shadow);
+  transition: all 0.3s ease;
+}
+
+.filters-top-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex-flow: row wrap;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  /* Un fond légèrement différent pour l'input */
+  background: var(--bg-primary); 
+  border-radius: 6px;
+  padding: 4px 10px;
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid var(--border-color);
+}
+
+.search-input {
+  border: none;
+  background: transparent;
+  padding: 6px;
+  width: 100%;
+  font-size: 0.85rem;
+  outline: none;
+  /* Couleur du texte dynamique */
+  color: var(--text-primary);
+}
+
+/* Style pour le texte de remplacement (placeholder) en mode sombre */
+.search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.filters-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 2;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0 8px;
+  height: 34px;
+  white-space: nowrap;
+}
+
+.filter-select {
+  border: none;
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+  background: transparent;
+  /* Couleur du texte des listes déroulantes */
+  color: var(--text-primary);
+}
+
+/* Style des options pour certains navigateurs */
+.filter-select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.results-count {
+  font-size: 0.75rem;
+  /* On utilise la couleur primaire choisie par l'utilisateur */
+  color: var(--primary-color);
+  font-weight: 600;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  width: 100%;
+}

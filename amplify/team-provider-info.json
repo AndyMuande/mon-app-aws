@@ -9,7 +9,8 @@
       "UnauthRoleName": "amplify-monappaws-dev-7fdbe-unauthRole",
       "StackName": "amplify-monappaws-dev-7fdbe",
       "StackId": "arn:aws:cloudformation:eu-west-3:194449349076:stack/amplify-monappaws-dev-7fdbe/61343170-efcd-11f0-8dff-0a82a506fce7",
-      "AmplifyAppId": "d1wfzgiebry3ut"
+      "AmplifyAppId": "d1wfzgiebry3ut",
+      "APIGatewayAuthURL": "https://s3.amazonaws.com/amplify-monappaws-dev-7fdbe-deployment/amplify-cfn-templates/api/APIGatewayAuthStack.json"
     },
     "categories": {
       "hosting": {
@@ -21,14 +22,15 @@
       "function": {
         "apimessages": {
           "deploymentBucketName": "amplify-monappaws-dev-7fdbe-deployment",
-          "s3Key": "amplify-builds/apimessages-58434b384c4c34766f6a-build.zip"
+          "s3Key": "amplify-builds/apimessages-455439726c74365a526d-build.zip"
         }
       },
       "api": {
         "monapi": {}
       },
       "storage": {
-        "messagesTable": {}
+        "messagesTable": {},
+        "messagesImages": {}
       },
       "auth": {
         "monappaws378b0e76": {}
