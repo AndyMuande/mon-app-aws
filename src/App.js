@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { subscribeToMessages, playNotificationSound } from './notificationService';
+import NotificationBadge from './NotificationBadge';
 
 // Imports de tes composants
 import Auth from './Auth';
@@ -30,6 +32,10 @@ function App() {
   const [filterUser, setFilterUser] = useState('all');
   const [filterDate, setFilterDate] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+
+  // --- ÉTATS NOTIFICATIONS ---
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // --- LOGIQUE UTILISATEUR & API ---
   const getCurrentUser = useCallback(async () => {
@@ -69,6 +75,19 @@ function App() {
     }
   }, []);
 
+  // --- GESTION DES NOTIFICATIONS ---
+  const markNotificationAsRead = useCallback((notifId) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === notifId ? { ...n, read: true } : n)
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  }, []);
+
+  const markAllAsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setUnreadCount(0);
+  }, []);
+
   // Effet initial au chargement
   useEffect(() => {
     checkApi();
@@ -76,18 +95,186 @@ function App() {
     setupUser();
   }, [checkApi, fetchMessages, setupUser]);
 
-  // --- LOGIQUE TEMPS RÉEL (POLLING) ---
+  // --- ÉCOUTER LES NOUVEAUX MESSAGES DES AUTRES ONGLETS/UTILISATEURS ---
   useEffect(() => {
-    // Rafraîchit les messages toutes les 10 secondes
-    const interval = setInterval(() => {
-      if (!loading) {
-        fetchMessages();
+    const handleNewMessage = (event) => {
+      const newMessageData = event.detail;
+      
+      // Ne pas notifier si c'est notre propre message
+      if (newMessageData && newMessageData.user !== currentUserEmail) {
+        const notif = {
+          id: Date.now().toString() + Math.random(),
+          type: 'new_message',
+          message: `Nouveau message de ${newMessageData.user}: ${newMessageData.text.substring(0, 50)}${newMessageData.text.length > 50 ? '...' : ''}`,
+          read: false,
+          timestamp: new Date().toISOString()
+        };
+        
+        setNotifications(prev => [notif, ...prev]);
+        setUnreadCount(prev => prev + 1);
+        
+        // Jouer un son
+        playNotificationSound();
+        
+        // Notification navigateur
+        if ('Notification' in window && Notification.permission === 'granted') {
+          console.log('🔔 Envoi de la notification...');
+          try {
+            new Notification('Nouveau message', {
+              body: `${newMessageData.user}: ${newMessageData.text.substring(0, 100)}`,
+              icon: '/logo192.png',
+              tag: 'new-message'
+            });
+            console.log('✅ Notification envoyée');
+          } catch (err) {
+            console.error('❌ Erreur lors de l\'envoi de la notification:', err);
+          }
+        } else {
+          console.warn('⚠️ Permissions insuffisantes pour envoyer la notification');
+        }
       }
-    }, 10000); 
+      
+      // Rafraîchir la liste des messages
+      fetchMessages();
+    };
 
-    // Nettoyage de l'intervalle si on quitte la page
+    window.addEventListener('new-message', handleNewMessage);
+    
+    return () => {
+      window.removeEventListener('new-message', handleNewMessage);
+    };
+  }, [currentUserEmail, fetchMessages]);
+
+  // --- DEMANDER PERMISSION NOTIFICATIONS NAVIGATEUR ---
+  const requestNotificationPermission = useCallback(async () => {
+    if ('Notification' in window) {
+      if (Notification.permission === 'granted') {
+        console.log('✅ Notifications déjà autorisées');
+      } else if (Notification.permission === 'default') {
+        try {
+          const permission = await Notification.requestPermission();
+          console.log('📢 Permission demandée, résultat:', permission);
+        } catch (err) {
+          console.error('❌ Erreur lors de la demande de permission:', err);
+        }
+      } else {
+        console.warn('⚠️ Notifications refusées par l\'utilisateur');
+      }
+    } else {
+      console.error('❌ Notifications non supportées');
+    }
+  }, []);
+
+  useEffect(() => {
+    // Initialiser et demander la permission au chargement
+    if ('Notification' in window) {
+      console.log('Notification permission:', Notification.permission);
+    }
+    requestNotificationPermission();
+  }, [requestNotificationPermission]);
+
+  // --- SUBSCRIPTIONS TEMPS RÉEL (WebSocket - optionnel) ---
+  useEffect(() => {
+    if (!currentUserEmail) return;
+
+    const messageSubscription = subscribeToMessages((newMessage) => {
+      console.log('Message via WebSocket:', newMessage);
+      
+      if (newMessage.user !== currentUserEmail) {
+        const notif = {
+          id: Date.now().toString() + Math.random(),
+          type: 'new_message',
+          message: `Nouveau message de ${newMessage.user}`,
+          read: false,
+          timestamp: new Date().toISOString()
+        };
+        
+        setNotifications(prev => [notif, ...prev]);
+        setUnreadCount(prev => prev + 1);
+        playNotificationSound();
+      }
+      
+      fetchMessages();
+    });
+
+    return () => {
+      if (messageSubscription) {
+        messageSubscription.unsubscribe();
+      }
+    };
+  }, [currentUserEmail, fetchMessages]);
+
+  // Garder le dernier ID de message connu pour détecter les nouveaux
+  const [lastMessageId, setLastMessageId] = useState(null);
+
+  // --- LOGIQUE TEMPS RÉEL (POLLING AVEC DÉTECTION DE NOUVEAUX MESSAGES) ---
+  useEffect(() => {
+    let interval;
+    
+    const pollMessages = async () => {
+      if (loading) return;
+      
+      try {
+        const response = await fetch(`${API_URL}/messages`);
+        const data = await response.json();
+        
+        if (data.success && data.messages && data.messages.length > 0) {
+          const latestMessage = data.messages[0];
+          
+          // Si on a un nouveau message et ce n'est pas le nôtre
+          if (lastMessageId !== latestMessage.id && latestMessage.user !== currentUserEmail) {
+            console.log('🆕 Nouveau message détecté:', latestMessage);
+            
+            // Créer une notification
+            const notif = {
+              id: Date.now().toString() + Math.random(),
+              type: 'new_message',
+              message: `Nouveau message de ${latestMessage.user}: ${latestMessage.text.substring(0, 50)}${latestMessage.text.length > 50 ? '...' : ''}`,
+              read: false,
+              timestamp: new Date().toISOString()
+            };
+            
+            setNotifications(prev => [notif, ...prev]);
+            setUnreadCount(prev => prev + 1);
+            
+            // Jouer un son
+            playNotificationSound();
+            
+            // Notification navigateur
+            if ('Notification' in window && Notification.permission === 'granted') {
+              console.log('🔔 Envoi de la notification...');
+              try {
+                new Notification('Nouveau message', {
+                  body: `${latestMessage.user}: ${latestMessage.text.substring(0, 100)}`,
+                  icon: '/logo192.png',
+                  tag: 'new-message'
+                });
+                console.log('✅ Notification envoyée');
+              } catch (err) {
+                console.error('❌ Erreur lors de l\'envoi de la notification:', err);
+              }
+            } else {
+              console.warn('⚠️ Permission notification non accordée');
+            }
+          }
+          
+          // Mettre à jour le dernier ID connu
+          setLastMessageId(latestMessage.id);
+          setMessages(data.messages);
+        }
+      } catch (err) {
+        console.error('Erreur polling messages:', err);
+      }
+    };
+    
+    // Première vérification immédiate
+    pollMessages();
+    
+    // Puis vérifier toutes les 3 secondes
+    interval = setInterval(pollMessages, 3000);
+    
     return () => clearInterval(interval);
-  }, [fetchMessages, loading]);
+  }, [loading, currentUserEmail, lastMessageId]);
 
   // --- CHARGER LES PRÉFÉRENCES DE FILTRES ---
   useEffect(() => {
@@ -142,27 +329,54 @@ function App() {
 
     try {
       setLoading(true);
-      const messageData = { text: newMessage, user: currentUserEmail || 'Anonyme' };
+      const messageData = { 
+        text: newMessage, 
+        user: currentUserEmail || 'Anonyme' 
+      };
+      
       if (selectedImage) {
         messageData.imageBase64 = imagePreview;
         messageData.imageType = selectedImage.type;
       }
+      
       const response = await fetch(`${API_URL}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(messageData)
       });
+      
       if (response.ok) {
+        const data = await response.json();
+        
+        // Réinitialiser le formulaire
         setNewMessage('');
         setSelectedImage(null);
         setImagePreview(null);
+        
+        // DÉCLENCHER L'ÉVÉNEMENT POUR LES NOTIFICATIONS
+        if (data.success && data.message) {
+          // Émettre l'événement pour les autres onglets/utilisateurs
+          window.dispatchEvent(new CustomEvent('new-message', { 
+            detail: {
+              id: data.message.id,
+              text: data.message.text,
+              user: data.message.user,
+              timestamp: data.message.timestamp,
+              imageUrl: data.message.imageUrl
+            }
+          }));
+          
+          console.log('✅ Événement new-message émis:', data.message);
+        }
+        
+        // Rafraîchir la liste
         fetchMessages();
       } else {
         throw new Error("Erreur lors de l'envoi");
       }
     } catch (err) { 
       setError(err.message);
-      setTimeout(() => setError(null), 5000); // Efface l'erreur après 5s
+      setTimeout(() => setError(null), 5000);
     } finally { 
       setLoading(false); 
     }
@@ -182,12 +396,10 @@ function App() {
   const getFilteredAndSortedMessages = useCallback(() => {
     let filtered = [...messages];
 
-    // Filtre "Mes messages uniquement"
     if (showOnlyMyMessages) {
       filtered = filtered.filter(msg => msg.user === currentUserEmail);
     }
 
-    // Filtre par recherche textuelle
     if (searchTerm.trim()) {
       filtered = filtered.filter(msg =>
         msg.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -195,12 +407,10 @@ function App() {
       );
     }
 
-    // Filtre par utilisateur spécifique
     if (filterUser !== 'all') {
       filtered = filtered.filter(msg => msg.user === filterUser);
     }
 
-    // Filtre par date
     if (filterDate !== 'all') {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -211,35 +421,28 @@ function App() {
         switch (filterDate) {
           case 'today':
             return msgDate >= today;
-          
           case 'week':
             const weekAgo = new Date(today);
             weekAgo.setDate(weekAgo.getDate() - 7);
             return msgDate >= weekAgo;
-          
           case 'month':
             const monthAgo = new Date(today);
             monthAgo.setMonth(monthAgo.getMonth() - 1);
             return msgDate >= monthAgo;
-          
           default:
             return true;
         }
       });
     }
 
-    // Tri
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'newest':
           return new Date(b.timestamp) - new Date(a.timestamp);
-        
         case 'oldest':
           return new Date(a.timestamp) - new Date(b.timestamp);
-        
         case 'user':
           return a.user.localeCompare(b.user);
-        
         default:
           return 0;
       }
@@ -248,12 +451,10 @@ function App() {
     return filtered;
   }, [messages, showOnlyMyMessages, searchTerm, filterUser, filterDate, sortBy, currentUserEmail]);
 
-  // Récupérer la liste unique des utilisateurs
   const getUniqueUsers = useCallback(() => {
     return [...new Set(messages.map(msg => msg.user))].sort();
   }, [messages]);
 
-  // Messages filtrés
   const displayedMessages = getFilteredAndSortedMessages();
 
   // --- RENDU ---
@@ -261,13 +462,21 @@ function App() {
     <Auth>
       {({ signOut, user }) => (
         <div className="App">
-          {/* Bouton de personnalisation du thème */}
           <ThemeToggle />
+          
           <Header 
             apiStatus={apiStatus} 
             currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail} 
             setupUser={setupUser}
             signOut={signOut}
+            notificationBadge={
+              <NotificationBadge
+                unreadCount={unreadCount}
+                notifications={notifications}
+                onMarkAsRead={markNotificationAsRead}
+                onClearAll={markAllAsRead}
+              />
+            }
           />
 
           <div className="container">
