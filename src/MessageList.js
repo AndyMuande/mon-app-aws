@@ -1,11 +1,29 @@
 import React from 'react';
-import './MessageList.css'; // <--- L'IMPORTATION EST ICI
-import MessageCard from './MessageCard'; // <--- CETTE LIGNE EST OBLIGATOIRE ICI
+import './MessageList.css';
+import MessageCard from './MessageCard';
 
-const MessageList = ({ messages, onDelete, currentUserEmail, loading }) => {
+const API_URL = 'https://4rca5iti3f.execute-api.eu-west-3.amazonaws.com/dev';
+
+const MessageList = ({ messages, onDelete, currentUserEmail, loading, searchTerm, onReactionUpdate }) => {
   if (loading && messages.length === 0) {
     return <div className="messages-loading">Chargement des messages...</div>;
   }
+
+  const handleReaction = async (messageId, emoji, user) => {
+    try {
+      const response = await fetch(`${API_URL}/messages/${messageId}/reactions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji, user })
+      });
+      
+      if (response.ok) {
+        onReactionUpdate();
+      }
+    } catch (error) {
+      console.error('Erreur réaction:', error);
+    }
+  };
 
   return (
     <div className="messages-content">
@@ -17,7 +35,8 @@ const MessageList = ({ messages, onDelete, currentUserEmail, loading }) => {
             key={msg.id} 
             msg={msg} 
             onDelete={onDelete} 
-            currentUserEmail={currentUserEmail} 
+            currentUserEmail={currentUserEmail}
+            onReact={handleReaction}  // Passer la fonction au MessageCard
           />
         ))
       )}

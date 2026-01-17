@@ -22,6 +22,13 @@ const s3Client = new S3Client({ region: process.env.REGION });
 const tableName = process.env.STORAGE_MESSAGESTABLE_NAME;
 const bucketName = process.env.STORAGE_MESSAGESIMAGES_BUCKETNAME;
 
+// Log les variables d'environnement pour déboguer
+console.log('📋 Configuration Lambda:');
+console.log('  Region:', process.env.REGION);
+console.log('  Table Name:', tableName);
+console.log('  Bucket Name:', bucketName);
+console.log('  Env vars disponibles:', Object.keys(process.env).filter(k => k.startsWith('STORAGE_')));
+
 const app = express();
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(awsServerlessExpressMiddleware.eventContext());
@@ -41,6 +48,16 @@ app.use((req, res, next) => {
 // Route santé
 app.get('/messages/health', async (req, res) => {
   try {
+    // Vérifier que les variables d'environnement sont définies
+    if (!tableName) {
+      console.error('❌ STORAGE_MESSAGESTABLE_NAME non défini');
+      return res.status(500).json({ 
+        status: 'error', 
+        error: 'Configuration manquante: tableName',
+        debug: { tableName, bucketName }
+      });
+    }
+    
     const command = new ScanCommand({
       TableName: tableName,
       Select: 'COUNT'
@@ -55,10 +72,11 @@ app.get('/messages/health', async (req, res) => {
       bucketName: bucketName
     });
   } catch (error) {
-    console.error('Erreur health check:', error);
+    console.error('❌ Erreur health check:', error);
     res.status(500).json({ 
       status: 'error', 
-      error: error.message 
+      error: error.message,
+      debug: { tableName, bucketName, region: process.env.REGION }
     });
   }
 });
@@ -318,6 +336,80 @@ app.put('/messages/:id', async (req, res) => {
 
 app.listen(3000, function() {
     console.log("App started");
+});
+
+// PUT - Ajouter/retirer une réaction
+app.put('/messages/:id/reactions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { emoji, user } = req.body;
+    
+    if (!emoji || !user) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Emoji et utilisateur requis' 
+      });
+    }
+
+    // Récupérer le message actuel
+    const getCommand = new GetCommand({
+      TableName: tableName,
+      Key: { id }
+    });
+    
+    const { Item } = await dynamodb.send(getCommand);
+    
+    if (!Item) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Message non trouvé' 
+      });
+    }
+
+    // Initialiser les réactions si elles n'existent pas
+    let reactions = Item.reactions || {};
+    if (!reactions[emoji]) {
+      reactions[emoji] = [];
+    }
+
+    // Toggle : ajouter ou retirer l'utilisateur
+    const userIndex = reactions[emoji].indexOf(user);
+    if (userIndex > -1) {
+      // L'utilisateur a déjà réagi, on retire
+      reactions[emoji].splice(userIndex, 1);
+      // Supprimer l'emoji si plus personne n'a réagi
+      if (reactions[emoji].length === 0) {
+        delete reactions[emoji];
+      }
+    } else {
+      // Ajouter la réaction
+      reactions[emoji].push(user);
+    }
+
+    // Mettre à jour le message
+    const updateCommand = new UpdateCommand({
+      TableName: tableName,
+      Key: { id },
+      UpdateExpression: 'set reactions = :reactions',
+      ExpressionAttributeValues: {
+        ':reactions': reactions
+      },
+      ReturnValues: 'ALL_NEW'
+    });
+
+    const data = await dynamodb.send(updateCommand);
+    
+    res.json({ 
+      success: true, 
+      message: data.Attributes 
+    });
+  } catch (error) {
+    console.error('Erreur réaction:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
 });
 
 module.exports = app;

@@ -26,7 +26,6 @@ export default function Header({
       <div className="header-content">
         <div className="header-left">
           <h1>Messagerie AWS</h1>
-          <p>Full-Stack avec temps réel</p>
         </div>
 
         <div className="header-right">
@@ -47,6 +46,7 @@ export default function Header({
           {/* Déconnexion */}
           <button onClick={onSignOut} className="signout-btn">
             <LogOut size={18} />
+            <span>Déconnexion</span>
           </button>
         </div>
       </div>

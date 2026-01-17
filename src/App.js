@@ -468,7 +468,7 @@ function App() {
             apiStatus={apiStatus} 
             currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail} 
             setupUser={setupUser}
-            signOut={signOut}
+            onSignOut={signOut}
             notificationBadge={
               <NotificationBadge
                 unreadCount={unreadCount}
@@ -541,6 +541,8 @@ function App() {
                   currentUserEmail={user?.signInDetails?.loginId || user?.username || currentUserEmail}
                   loading={loading}
                   searchTerm={searchTerm}
+                  onReactionUpdate={fetchMessages}  // Ajoutez cette ligne
+
                 />
               </div>
             </div>

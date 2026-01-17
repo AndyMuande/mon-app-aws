@@ -1,7 +1,8 @@
 import React from 'react';
-import './MessageCard.css'; // <--- L'IMPORTATION EST ICI
+import './MessageCard.css'; // <--- L'IMPORTATION EST 
+import MessageReactions from './MessageReactions';
 
-const MessageCard = ({ msg, onDelete, currentUserEmail }) => {
+const MessageCard = ({ msg, onDelete, currentUserEmail, onReact }) => {
   const isOwnMessage = msg.user === currentUserEmail;
 
   return (
@@ -23,7 +24,13 @@ const MessageCard = ({ msg, onDelete, currentUserEmail }) => {
           </div>
         )}
       </div>
-
+{/* AJOUTEZ LES RÉACTIONS ICI */}
+      <MessageReactions
+        messageId={msg.id}
+        reactions={msg.reactions || {}}
+        currentUser={currentUserEmail}
+        onReact={onReact}
+      />
       <button onClick={() => onDelete(msg.id)} className="delete-button">🗑️</button>
     </div>
   );
