@@ -33,7 +33,7 @@ const Header = ({ apiStatus, currentUserEmail, setupUser, signOut, unreadCount, 
             {unreadCount > 0 
               ? `NOUVEAU(X) MESSAGE(S) : ${unreadCount} ! — ` 
               : `🚀 Système opérationnel — `}
-            Région : eu-west-3
+            Région : Paris eu-west-3
           </p>
         </div>
       </div>
