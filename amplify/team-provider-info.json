@@ -22,7 +22,7 @@
       "function": {
         "apimessages": {
           "deploymentBucketName": "amplify-monappaws-dev-7fdbe-deployment",
-          "s3Key": "amplify-builds/apimessages-3853786a4f4b43644246-build.zip"
+          "s3Key": "amplify-builds/apimessages-6471516c4a6554542b36-build.zip"
         }
       },
       "api": {

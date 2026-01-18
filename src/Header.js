@@ -9,6 +9,8 @@ import {
   Loader
 } from 'lucide-react';
 
+const API_URL = 'https://4rca5iti3f.execute-api.eu-west-3.amazonaws.com/dev';
+
 export default function Header({
   apiStatus,
   currentUserEmail,
@@ -38,6 +40,15 @@ export default function Header({
             messages={messages}
             currentUserEmail={currentUserEmail}
           />
+          <a 
+            href={`${API_URL}/messages/docs`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="docs-link"
+            title="Documentation API"
+          >
+            📖 API Docs
+          </a>
           {/* Statut API */}
           <div className={`api-status ${apiStatus}`}>
             {renderApiStatusIcon()}
