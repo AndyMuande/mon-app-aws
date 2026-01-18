@@ -1,5 +1,6 @@
 import React from 'react';
 import './Header.css';
+import ExportButton from './ExportButton';
 import {
   LogOut,
   User,
@@ -13,7 +14,8 @@ export default function Header({
   currentUserEmail,
   setupUser,
   onSignOut,
-  notificationBadge
+  notificationBadge,
+  messages  // Ajoutez ce prop
 }) {
   const renderApiStatusIcon = () => {
     if (apiStatus === 'connected') return <Wifi size={18} />;
@@ -31,7 +33,11 @@ export default function Header({
         <div className="header-right">
           {/* Badge notifications */}
           {notificationBadge}
-
+          {/* Bouton d'export */}
+          <ExportButton 
+            messages={messages}
+            currentUserEmail={currentUserEmail}
+          />
           {/* Statut API */}
           <div className={`api-status ${apiStatus}`}>
             {renderApiStatusIcon()}

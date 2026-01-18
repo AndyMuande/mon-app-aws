@@ -477,6 +477,7 @@ function App() {
                 onClearAll={markAllAsRead}
               />
             }
+            messages={messages}
           />
 
           <div className="container">
